@@ -1,0 +1,90 @@
+#!/bin/bash
+
+## For running script directly:
+
+_ext() {
+    e="$(echo "$*" | sed -re 's/.*(\.[a-zA-Z]*)/\1/')";
+    [[ "${e}" == "$*" ]] && e="";
+    echo "${e}";
+};
+
+_ln() {
+    ke="$(_ext "${k}")";
+    if [ -d "${n}" ]; then
+        ln -sr "${n}" "${k}";
+    elif [ -d "${k}" ]; then
+        ln -sr "${f}" "${k}/";
+    elif [ "${ke}" ]; then
+        ln -sr "${f}" "${k}";
+    else
+        ln -sr "${f}" "$k$e";
+    fi;
+
+    [[ $? != 0 ]] && zenity --error --text="Could not make link '${k}'";
+}
+
+_browse() {
+    cmd=( zenity --file-selection 
+        --title="New Links to '${n}'..."
+        --save 
+        --filename="${f}"
+    );
+    [ -d "${f}" ] &&
+        cmd+=( --directory );
+    t="$(eval "${cmd[@]}")";
+}
+
+declare f="${1}";
+declare n="${2}";
+
+declare e t;
+e="$(_ext "${n}")";
+t="$(zenity --entry \
+    --title="New Links to '${n}'..." \
+    --text="Enter new link names (separated by spaces): " \
+    --entry-text="${n}" \
+    --extra-button="Browse..."
+)";
+
+if [[ "${t}" == "Browse..." ]]; then
+    _browse;
+fi;
+
+declare k;
+for k in ${t[@]}; do
+    _ln;
+done;
+
+exit $?;
+
+## For Thunar Menu:
+
+t="$(zenity --title="Make Link" --entry --text="Enter link names (separated by spaces): ")" ; for k in $t ; do ln -sr %n "${k}" ; done
+
+_ext() {
+    e="$(echo "$*" | sed -re 's/.*(\.[a-zA-Z]*)/\1/')";
+    [[ "${e}" == "$*" ]] && e="";
+    echo "${e}";
+};
+
+e="$(_ext %n)";
+t="$(zenity --entry --title="Make Link" --text="Enter link names (separated by spaces): " --entry-text=%n)";
+
+for k in $t; do
+    ke="$(_ext "${k}")";
+    if [ -d "${k}" ]; then
+        ln -sr %f "${k}/";
+    elif [ "${ke}" ]; then
+        ln -sr %f "${k}";
+    else
+        ln -sr %f "$k$e";
+    fi;
+done;
+
+#_ext() { e="$(echo "$*" | sed -re 's/.*(\.[a-zA-Z]*)/\1/')"; [[ "${e}" == "$*" ]] && e=""; echo "${e}"; }; e="$(_ext %n)"; t="$(zenity --entry --title="Make Link" --text="Enter link names (separated by spaces): " --entry-text=%n)"; for k in $t; do ke="$(_ext "${k}")"; if [ -d "${k}" ]; then  ln -sr %f "${k}/"; elif [ "${ke}" ]; then  ln -sr %f "${k}"; else  ln -sr %f "$k$e"; fi; done;
+
+## Old file version:
+#e="$(echo %n | sed -e 's/.*\(\.[a-zA-Z]*\)/\1/')" ; if [[ "${e}" == %n ]] ; then e="" ; fi ; t="$(zenity --title="Make Link" --entry --text="Enter link names (separated by spaces): ")" ; for k in $t ; do te="$(echo $t | sed -e 's/.*\(\.[a-zA-Z]*\)/\1/')" ; if [[ $te != $t ]] ; then ln -sr %f $k ; else ln -sr %f "$k$e" ; fi ; done
+
+## Old dir version:
+#t="$(zenity --title="Make Link" --entry --text="Enter link names (separated by spaces): ")" ; for k in $t ; do ln -sr %n "${k}" ; done
