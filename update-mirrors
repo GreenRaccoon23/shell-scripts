@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+
+declare TMP;
+declare -r FILE="mirrorlist";
+declare -r BACKUP="mirrorlist.backup";
+declare -r PACOLD="mirrorlist.pacold";
+declare -r PACNEW="mirrorlist.pacnew";
+
+_main() {
+    _runAsRoot;
+
+    _q pushd "/etc/pacman.d";
+
+    [ -e "${FILE}" ] ||
+        exit 1;
+
+    echo "Backing up current mirrorlist...";
+    _bakPacOld;
+
+    echo "Creating temporary list of United States servers...";
+    _tmpPac;
+
+    echo "Finding 6 fastest mirrors...";
+    _rankPac;
+
+    echo "Backing up new mirrorlist...";
+    _bakPacNew;
+
+    _q popd;
+
+    echo "Success."
+}
+
+_runAsRoot() {
+    [ "$(whoami)" = "root" ] && return 0;
+    sudo "$0";
+    exit $?;
+}
+
+# Backup the current mirrorlist.
+# Find an unused filename for the new backup.
+_bakPacOld() {
+    local bak;
+    bak="$(_genNewBak "${PACOLD}")";
+
+    _evalcho cp -a "${FILE}" "${bak}" ||
+        exit $?;
+}
+
+_genNewBak() {
+    local base="${1}";
+    [ -n "${base}" ] || base="${BACKUP}";
+
+    local bak;
+    local -i i;
+    for i in $(seq 1 100); do
+        bak="${base}$i";
+        ! [ -e "${bak}" ] && break;
+    done;
+    echo "${bak}";
+}
+
+# Make a temporary copy of 'mirrorlist.pacnew'
+#   (If it doesn't exist copy 'mirrorlist'.)
+# Then remove all the non-US mirrors from the temporary file
+#   and uncomment the US mirrors.
+_tmpPac() {
+    [ -e "${PACNEW}" ] ||
+        _evalcho cp -a "${FILE}" "${PACNEW}";
+
+    TMP="mirrorlist.tmp";
+
+    sed -n '/United States/,/##/{p}' "${PACNEW}" | head -n -2 > "${TMP}" ||
+        exit $?;
+    sed -i 's/#Server/Server/' "${TMP}" ||
+        exit $?;
+}
+
+# Use `rankmirrors` to find the best servers in the temporary file.
+# Write the output to 'mirrorlist'.
+# Make a copy of the new, updated 'mirrorlist'.
+_rankPac() {
+    echo "  rankmirrors -n 6 \"${TMP}\" > \"${FILE}\"";
+    rankmirrors -n 6 "${TMP}" > "${FILE}" ||
+        exit $?;
+
+    cat "${FILE}";
+};
+
+# Create a backup of the new mirrorlist.
+_bakPacNew() {
+    _evalcho cp -a "${FILE}" "${BACKUP}" ||
+        exit $?;
+}
+
+_q() {
+    eval "$@" &>/dev/null;
+}
+
+_evalcho() {
+    echo "  $@";
+    eval "$@";
+}
+
+_main;
