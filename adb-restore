@@ -1,0 +1,127 @@
+#!/bin/bash
+shopt -s extglob
+
+# Print help and exit.
+_help() {
+    local path="$0";
+    local script=${path##*/};
+    cat << EOH >&2
+Restore data to an Android device from an Android backup '.ab' archive.
+Usage:
+    ${script} "<backup-file>.ab"
+EOH
+
+    if [ "${1}" ]; then
+        exit "${1}";
+    fi;
+    exit 1;
+}
+
+# Analyze user arguments.
+_getopts() {
+    # Iterate over user arguments.
+    local -i i;
+    local flag;
+    for ((i=1;i<=$#;i++)); do
+        eval flag="\$$i";
+        case "${flag}" in 
+            *(-)[hH] | *(-)[hH][eE][lL][pP] )
+                _help;
+                ;;
+           * )
+                ARGS+=( "${flag}" );
+                ;;
+        esac;
+    done;
+}
+
+# Further analyze user arguments.
+_evalopts() {
+    if [ "${ARGS[*]}" ]; then
+        return 0;
+    fi;
+    _help;
+}
+
+# Exit with error 1 if the previous command returned an error.
+_err() {
+    if [[ $? == 0 ]]; then
+        return 0;
+    fi;
+
+    local err="$*";
+    if ! [ "${err}" ]; then
+        err="An error occurred. Cannot continue.";
+    fi;
+    echo "${err}";
+    exit 1;
+}
+
+# Run a command silently.
+_q() {
+    eval "$@" >&/dev/null;
+}
+
+# Remove an extension from a filename.
+_rmExt() {
+    local file="${1}";
+    local ext="${2}";
+    if [[ "${file:$((${#file}-1)):1}" == "." ]]; then
+        file="$(_rmExt "${file}" "")";
+    fi;
+
+    if [[ "${file%\.${ext}*}" != "${file}" ]]; then
+        echo "${file%\.${ext}*}";
+    else
+        echo "${file%${ext}*}";
+    fi;
+}
+
+# Check whether a file ends with a certain extension.
+_hasExt() {
+    local file="${1}";
+    local ext="${2}";
+    
+    # If globbing works, the file ends with the extension.
+    if [[ "${file}" != "${file%%\.${ext}*}" ]]; then
+        return 0;
+    fi;
+    return 1;
+}
+
+# Wait for Android device to connect.
+_connect() {
+    local connected;
+    connected="$(adb devices | head -2 | tail -1)";
+    if [ "${connected}" ]; then
+        return 0;
+    fi;
+    echo "Waiting for Android device to connect...";
+    adb wait-for-device;
+}
+
+# Run `adb restore` to restore data to an Android device.
+_restore() {
+    local ab="${1}";
+    if ! [ "${ab}" ]; then
+        echo "No backup file specified.";
+        exit 1;
+    elif ! [ -e "${ab}" ]; then
+        echo "Backup file "${ab}" does not exist.";
+        exit 1;
+    fi;
+	
+    _connect;
+    _evalcho adb restore "${ab}";
+}
+
+# Declare an array ARGS,
+#   which will be equivalent to "$@" minus any command-line switches.
+declare -a ARGS;
+
+_getopts "$@";
+_evalopts;
+
+declare AB="${ARGS[*]}";
+_restore "${AB}";
+
