@@ -1,0 +1,350 @@
+#!/bin/bash
+shopt -s extglob
+
+# Print help and exit.
+_help() {
+    local path="$0";
+    local script="${path##*/}";
+    cat << EOH >&2
+Run \`adb push\` and verify the integrity of the sent files.
+Usage: 
+    ${script} <files/directories>...
+EOH
+
+    local status="${1}";
+    [ -z "${status}" ] &&
+        status=0;
+
+    exit "${status}";
+}
+
+# Analyze user arguments.
+_getopts() {
+    [ -n "$*" ] ||
+        _help 1;
+
+    # Iterate over user arguments.
+    local -i i;
+    local flag;
+    for ((i=1;i<=$#;i++)); do
+        eval flag="\$$i";
+        case "${flag}" in 
+            *(-)[hH] | *(-)[hH][eE][lL][pP] )
+                _help 0;
+                ;;
+        esac;
+    done;
+}
+
+# Set console color.
+# Optionally, run a command afterwards, and once the command returns,
+#   reset the console color to normal.
+_c() {
+    local -A Codes=( 
+        ["black"]="0" 
+        ["red"]="1" 
+        ["green"]="2" 
+        ["yellow"]="3" 
+        ["blue"]="4" 
+        ["magenta"]="5" 
+        ["cyan"]="6" 
+        ["white"]="7" 
+    );
+
+    local k c;
+    for k in "${!Codes[@]}"; do
+        [ "${k}" = "${1}" ] &&
+            c="${Codes[$k]}";
+    done;
+
+    [ -n "${c}" ] &&
+        tput setaf "${c}";
+    
+    [ -z "${*:2}" ] &&
+        return;
+
+    eval "${@:2}";
+    tput sgr0;
+}
+
+# Set the console color to bold.
+# Optionally, pass any arguments to function '_c'.
+_C() {
+    tput bold;
+    [ -n "$*" ] &&
+        _c "$@";
+}
+
+# Reset console color to normal.
+_u() {
+    tput sgr0;
+}
+
+# Print any number of messages in bold green.
+_gecho() {
+    _c green
+    for m; do
+        echo "${m}";
+    done;
+    _u;
+}
+
+# Print error messages in red.
+_errcho() {
+    _c red;
+    for m; do
+        echo "${m}";
+    done;
+    _u;
+}
+
+# Run a command silently.
+_q() {
+    eval "$@" >/dev/null;
+}
+
+# Echo a command, and then evaluate it.
+_evalcho() {
+    echo "$@";
+    eval "$@";
+}
+
+# Remove an extension from a filename.
+_rmExt() {
+    local file="${1}";
+    local ext="${2}";
+    [ "${file:$((${#file}-1)):1}" = "." ] &&
+        file="$(_rmExt "${file}" "")";
+
+    if [ "${file%\.${ext}*}" != "${file}" ]; then
+        echo "${file%\.${ext}*}";
+    else
+        echo "${file%${ext}*}";
+    fi;
+}
+
+# Wait for Android device to connect.
+_connect() {
+    local connected;
+    connected="$(adb devices | head -2 | tail -1)";
+    [ -n "${connected}" ] &&
+        return 0;
+
+    echo "Waiting for Android device to connect...";
+    adb wait-for-device &&
+        echo "Android device connected.";
+}
+
+# Create a tar archive of the file to pull if it is a directory.
+_tar() {
+    echo "Creating tar archive of local directory '${FILE}'...";
+    echo " " tar -cf "${FILE}.tar" "${FILE}";
+    tar -cf "${FILE}.tar" "${FILE}";
+
+    FILE="${FILE}.tar";
+    COPY="${COPY}.tar";
+}
+
+# Work-around to get a status code from the adb shell,
+# since it hasn't been implemented in the last 8 years.
+_adbShellStatus() {
+    adb shell "$@ >/dev/null 2>&1; printf '%d' \$?";
+}
+
+# Extract the tar archives.
+_untar() {
+    echo "Extracting tar archive on device...";
+    echo "  adb shell \"cd '${DST}' &&
+             tar -xf '${FILE}';
+             rm '${FILE}'\"";
+    #adb shell "cd \"${DST}\" && tar -xf \"${FILE}\" && rm \"${FILE}\"";
+
+    local adbCmd="cd '${DST}' && 
+                  tar -xf '${FILE}'";
+    local adbStatus;
+    adbStatus="$(_adbShellStatus "${adbCmd}")";
+    adb shell "rm '${DST}/${FILE}'";
+    [ "${adbStatus}" = 0 ] ||
+        return 1;
+
+    echo "Cleaning up...";
+    rm "${FILE}" ||
+        return $?;
+    
+    FILE="$(_rmExt "${FILE}" "tar")";
+    COPY="$(_rmExt "${COPY}" "tar")";
+}
+
+# Send the file to the Android device.
+_push() {
+    # Return if nothing was passed.
+    [ -n "$*" ] ||
+        return;
+
+    local path="${1}";
+
+    echo "Sending '${path}' to device...";
+
+    # Copy the path's directory structure to the device.
+    _mkParents "${path}" ||
+        return $?;
+    echo " " adb push -p "${path}" "${DST}/${path}";
+    adb push -p "${path}" "${DST}/${path}";
+}
+
+# Make the directory structure on the Android device.
+_mkParents() {
+    # Return if nothing was passed.
+    [ -n "$*" ] ||
+        return;
+
+    local dir="${1}";
+    [ -d "${dir}" ] &&
+        dir="${dir}/";
+    
+    # Return if no directory structure needs to be made.
+    [ "${dir}" = "." ] &&
+        return;
+
+    # Make the directory structure on the Android device.
+    find "${dir}" -type d -exec adb shell mkdir "${DST}/{}" \;;
+}
+
+# Check the md5sum of the sent Android file/directory.
+_verify() {
+    [ -e "${FILE}" ] ||
+        return 1;
+
+    echo "Verifying md5sum checksums...";
+
+    local copyExists;
+    copyExists="$(adb shell "[ -e \"${COPY}\" ] && echo 0")";
+    [ -n "${copyExists}" ] ||
+        return 1;
+
+    local md5File;
+    md5File="$(md5sum "${FILE}")";
+    echo "  ${md5File}";
+    md5File="${md5File%  *}";
+
+    local md5Copy;
+    md5Copy="$(adb shell "md5sum \"${COPY}\"")";
+    echo "  ${md5Copy}";
+    md5Copy="${md5Copy%  *}";
+
+    [ "${md5File}" = "${md5Copy}" ] ||
+        return 1;
+}
+
+# Rerun script.
+_retry() {
+    local msg="$*";
+    [ -z "${msg}" ] &&
+        msg="Failed to send \"${FILE}\". Retrying...";
+
+    _errcho "${msg}";
+    $0 "${FILE}";
+}
+
+# Run main function.
+_main() {
+    # Quit if the local file does not exist.
+    if ! [ -e "${FILE}" ]; then
+        _errcho "\"${FILE}\" doesn't exist.";
+        return 1;
+    fi;
+
+    # Wait for the device to connect to the adb server if not connected yet.
+    _connect;
+
+    # Do not copy the parent directories of $FILE to the device.
+    if [ -n "${PARENT_DIR}" ]; then
+        _q pushd "${PARENT_DIR}";
+        FILE="${BASE}";
+    fi;
+
+    # Echo the name of $FILE in green to serve as a title for Terminal output.
+    # This makes the output easier to read when sending many files.
+    _gecho "${FILE}";
+
+    # Tar $FILE if it is a directory in order to generate an md5sum later.
+    [ -n "${IS_DIR}" ] &&
+        _tar;
+
+    # Send the local file to the device.
+    _push "${FILE}";
+    if [ $? != 0 ]; then
+        _retry;
+        return $?;
+    fi;
+
+    # Compare the md5sums of the local and sent files.
+    # If they do not match, resend it.
+    _verify;
+    if [ $? != 0 ]; then
+        _retry;
+        return $?;
+    fi;
+    
+    # If the file was tarred earlier,
+    #   untar it on the device,
+    #   remove the tar file on the device,
+    #   and remove the local tar file.
+    # If any errors occur, resend the file.
+    if [ -n "${IS_DIR}" ]; then
+        _untar;
+        if [ $? != 0 ]; then
+            _retry "Failed to untar ${FILE} on the device. Resending...";
+            return $?;
+        fi;
+    fi;
+    
+    # Remember to move back to the original directory.
+    [ -n "${PARENT_DIR}" ] &&
+        _q popd;
+
+    # If nothing failed, report it.
+    echo "Successfully sent ${FILE}."
+
+    # Make the last line of output the path of the sent file on the device.
+    echo "${COPY}";
+}
+
+# Check for flags.
+_getopts "$@";
+
+# Local file to push:
+declare FILE="${1}";
+
+# Destination directory on device:
+declare -r DST="/sdcard/adb";
+
+# Note whether $FILE needs to be tarred (in order to compare md5sums).
+declare IS_DIR=1;
+[ -d "${FILE}" ] ||
+    unset IS_DIR;
+
+# Split the path of $FILE so that its parents are not copied to the device.
+declare BASE PARENT_DIR;
+BASE="$(basename "${FILE}")";
+PARENT_DIR="$(dirname "${FILE}")";
+
+# If the parent directory of $FILE is the present working directory,
+#   note it by unsetting the $PARENT_DIR variable.
+[ "${PARENT_DIR}" = "." ] &&
+    unset PARENT_DIR;
+
+# Full destination path:
+declare COPY="${DST}/${BASE}";
+
+# Send it.
+_main;
+
+# Loop the script for any additional files.
+if [ -n "${2}" ]; then
+    echo;
+    "$0" "${@:2}";
+fi;
+
+exit $?;
+
