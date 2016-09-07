@@ -1,0 +1,524 @@
+#!/bin/bash
+shopt -s extglob
+
+# Print help and exit.
+_help() {
+    local path="$0";
+    local script=${path##*/};
+    local fmt="$(date +%Y-%m-%d)";
+    local bin="${HOME}/bin"
+    cat << EOH >&2
+${script}
+DESCRIPTION:
+  Pull an Android devices ${SRC} contents to ${DST}.
+USAGE:
+  ${script} [OPTIONS] [<remote-file-to-pull>] [<local-directory-to-save>]
+OPTIONS:
+  r, resume, c, continue [default]
+    Resume a backup operation if one did not complete earlier.
+    Useful when you need to cancel this tool and resume it later
+    or when it previously was cancelled by accident.
+  a, all, f, force, full
+    Force redo a a full backup, even if a previous one did not complete.
+    CAUTION: Any existing files will be overwritten.
+DEFAULT:
+  ${script} -r ${SRC} ${DST}
+NOTE:
+  Requires that the Bash script "adb-pull" is in the '\$PATH'.
+  (E.g., place "${script}" in "${HOME}/bin/" and 
+    add 'export PATH=\$PATH:\$HOME/bin' to '~/.bashrc'.)
+EOH
+
+    [ -n "${1}" ] &&
+        exit "${1}";
+    exit 1;
+};
+
+# Analyze user arguments.
+_getopts() {
+    # Declare arrays for commandline bool switches and string options.
+    local -a Bools;
+    local -a Strings;
+
+    # Iterate over user arguments.
+    local -i i;
+    local flag;
+    for ((i=1;i<=$#;i++)); do
+        eval flag="\$$i";
+        case "${flag}" in 
+            *(-)[hH]*([eE][lL][pP]) )
+                _help;
+                ;;
+            *(-)[rR]*([eE][sS][uU][mM][eE]) )
+                Bools[0]=0;
+                ;;
+            *(-)[cC]*([oO][nN][tT][iI][nN][uU][eE]) )
+                Bools[0]=0;
+                ;;
+            *(-)[aA]*([lL]) )
+                Bools[1]=0;
+                ;;
+            *(-)[fF]*([uU]+([lL])) )
+                Bools[1]=0;
+                ;;
+            *(-)[fF]*([oO][rR][cC][eE]) )
+                Bools[1]=0;
+                ;;
+            * )
+                Strings+=( "${flag}" );
+                ;;
+        esac;
+    done;
+    
+    # Set bool options.
+    DO_FORCE="${Bools[1]}";
+    if [ -n "${DO_FORCE}" ]; then
+        gvfs-trash "${TMP_FILE_DIRS}";
+        gvfs-trash "${TMP_FILE_INFOS}";
+    fi;
+
+    # Set string options.
+    [ -n "${Strings[0]}" ] &&
+        SRC="$(_fmtDir "${Strings[0]}")";
+    [ -n "${Strings[1]}" ] &&
+        DST="$(_fmtDir "${Strings[1]}")";
+    mkdir -p "${DST}";
+};
+
+# Set console color.
+# Optionally, run a command afterwards, and once the command returns,
+#   reset the console color to normal.
+_c() {
+    local -A Codes=( 
+        ["black"]="0" 
+        ["red"]="1" 
+        ["green"]="2" 
+        ["yellow"]="3" 
+        ["blue"]="4" 
+        ["magenta"]="5" 
+        ["cyan"]="6" 
+        ["white"]="7" 
+        ["bk"]="0" 
+        ["r"]="1" 
+        ["g"]="2" 
+        ["y"]="3" 
+        ["bu"]="4" 
+        ["m"]="5" 
+        ["c"]="6" 
+        ["w"]="7" 
+    );
+
+    local k c;
+    for k in "${!Codes[@]}"; do
+        [ "${k}" = "${1}" ] &&
+            c="${Codes[$k]}";
+    done;
+
+    [ -n "${c}" ] &&
+        tput setaf "${c}";
+    
+    [ -z "${*:2}" ] &&
+        return;
+    eval "${@:2}";
+    tput sgr0;
+};
+
+# Set the console color to bold.
+# Optionally, pass any arguments to function '_c'.
+_C() {
+    tput bold;
+    [ -n "$*" ] &&
+        _c "$@";
+};
+
+# Reset console color to normal.
+_u() {
+    tput sgr0;
+};
+
+# Echo a command, and then evaluate it.
+_evalcho() {
+    echo "$@";
+    eval "$@";
+};
+
+# Exit with status 1 after echoing an error message.
+_err() {
+    local err="$*";
+    [ -z "${err}" ] &&
+        err="An error occurred. Cannot continue.";
+
+    _c red;
+    echo "${err}";
+    _u;
+    exit 1;
+};
+
+# Run a command silently.
+_q() {
+    eval "$@" >&/dev/null;
+};
+
+# Ask user to answer a "yes or no" question.
+# Analyse the user's answer, with NO as the default.
+_yN() {
+    local -i t="${1}";
+    local ans;
+
+    if [ "${t}" != 0 ]; then
+        read -t "${t}" -p "${*:2} [y/N]: " ans;
+    else
+        read -p "$* [y/N]: " ans;
+    fi;
+
+    [ -z "${ans}" ] && echo;
+
+    case "${ans}" in [yY] | [yY][eE][sS])
+        return 0;
+    esac;
+    return 1;
+};
+
+# Ask user to answer a "yes or no" question.
+# Analyse the user's answer, with YES as the default.
+_Yn() {
+    local -i t="${1}";
+    local ans;
+
+    if [ "${t}" = 0 ]; then
+        read -p "$* [Y/n]: " ans;
+    else
+        read -t "${t}" -p "${*:2} [Y/n]: " ans;
+    fi;
+
+    [ -z "${ans}" ] && echo;
+
+    case "${ans}" in [nN] | [nN][oO])
+        return 1;
+    esac;
+    return 0;
+};
+
+# Wait for Android device to connect.
+_connect() {
+    local connected;
+    connected="$(adb devices | head -2 | tail -1)";
+    if [ "${connected}" ]; then
+        return 0;
+    fi;
+    echo "Waiting for Android device to connect...";
+    adb wait-for-device;
+};
+
+# Remove a trailing '/' from a string if it exists.
+_fmtDir() {
+    local d="$*";
+    if [ "${d: -1}" = "/" ]; then
+        echo "${d:: -1}";
+    else
+        echo "${d}";
+    fi;
+};
+
+# Store the target directories into an array
+# and save them in a temporary file.
+# _getDirs() {
+#     if [ ! -e "${TMP_FILE_DIRS}" ]; then
+#         _setDirs;
+#     fi;
+    
+#     IFS=$'\r\n' read -d '' -r -a DIRS < "${TMP_FILE_DIRS}";
+#     if [ -z "${DIRS[*]}" ]; then
+#         _err "Failed to get directories under ${SRC}/.";
+#     fi;
+# }
+
+_getInfos() {
+    # [ -e "${TMP_FILE_INFOS}" ] && rm "${TMP_FILE_INFOS}"; #delete
+    [ ! -e "${TMP_FILE_INFOS}" ] && _setInfos;
+
+    IFS=$'\r\n' read -d '' -r -a INFOS < "${TMP_FILE_INFOS}";
+    [ -z "${INFOS[*]}" ] && _err "Failed to get directories and size info under ${SRC}/.";
+    return 0;
+};
+
+_setInfos() {
+    _setDirs;
+    [ ! -e "${TMP_FILE_DIRS}" ] && _err "TMP_FILE_DIRS \"${TMP_FILE_DIRS}\" does not exist";
+
+    [ -e "${TMP_FILE_INFOS}" ] && gvfs-trash "${TMP_FILE_INFOS}";
+    [ -e "${TMP_FILE_SIZE_TOTAL}" ] && gvfs-trash "${TMP_FILE_SIZE_TOTAL}";
+    [ -e "${TMP_FILE_SIZE_DONE}" ] && gvfs-trash "${TMP_FILE_SIZE_DONE}";
+
+    local dirs;
+    IFS=$'\r\n' read -d '' -r -a dirs < "${TMP_FILE_DIRS}";
+
+    local d;
+    local -i size;
+    local -i total=0;
+
+    _c green "echo Getting dir sizes...";
+
+    for d in "${dirs[@]}"; do
+        # _adbDirSize "${d}"; continue; #delete
+        size="$(_adbDirSize "${d}")";
+        if [ -z "${size}" ]; then
+            _c yellow "echo Failed to get size of \"${d}\"";
+            size=0;
+        fi;
+
+        total=$((total + size));
+        echo "${d}${INFO_SEPARATOR}${size}" >> "${TMP_FILE_INFOS}";
+    done;
+    # exit; #delete
+
+    [ -z "${total}" ] && _err "Total size should be greater than 0. total: $total";
+
+    echo $total > "${TMP_FILE_SIZE_TOTAL}";
+    echo "0" > "${TMP_FILE_SIZE_DONE}";
+};
+
+# Store the target directories into an array
+# and save them in a temporary file.
+_setDirs() {
+    [ -e "${TMP_FILE_DIRS}" ] && gvfs-trash "${TMP_FILE_DIRS}";
+
+    _c green "echo Getting dirs...";
+    echo " " adb shell \"su -c /su/xbin/ls --color=never -A1 ${SRC}/\" '>' \"${TMP_FILE_DIRS}\";
+    adb shell "su -c /su/xbin/ls --color=never -A1 ${SRC}/" > "${TMP_FILE_DIRS}";
+};
+
+_adbDirSize() {
+    local path="/sdcard/${1}";
+
+    local info;
+    local statuss;
+    local size;
+    local tab;
+
+    info="$(adb shell "du -ack \"${path}\"; printf $?")";
+
+    statuss="$(echo "${info}" | tail -n 1)";
+    if [ "${statuss}" != "0" ]; then
+        echo "0";
+        return;
+    fi;
+
+    info="$(echo "${info}" | tail -n 2 | head -n 1)";
+
+    size="${info%% *}";
+    tab="$(echo -e "\t")";
+    size="${size%%$tab*}";
+
+    echo "${size}";
+};
+
+_getSizeTotal() {
+    SIZE_TOTAL="$(cat "${TMP_FILE_SIZE_TOTAL}")";
+    [ -z "${SIZE_TOTAL}" ] && _err "Failed to get size total from \"${TMP_FILE_SIZE_TOTAL}\"";
+    return 0;
+};
+
+_getSizeDone() {
+    SIZE_DONE="$(cat "${TMP_FILE_SIZE_DONE}")";
+    [ -z "${SIZE_DONE}" ] && _err "Failed to get size done from \"${TMP_FILE_SIZE_DONE}\"";
+    return 0;
+};
+
+# Pull each file from the device.
+# _backup() {
+#     local d;
+#     local isFirst=0;
+
+#     for d in "${DIRS[@]}"; do
+#         [ -z "${d}" ] && continue;
+
+#         if [ "${isFirst}" = 0 ]; then
+#             isFirst=1;
+#         else
+#             echo;
+#         fi;
+
+#         _c green "echo -n ==\> Pull ${d}?";
+#         ( 
+#             _Yn 3 &&
+#                 adb-pull "${SRC}/${d}";
+#         ) || (
+#             echo "${d}" | tee -a "${TMP_FILE_DIRS}";
+#             INCOMPLETE+=("${d}");
+#         )
+#         sed -i -e '1d' "${TMP_FILE_DIRS}";
+#     done;
+# }
+
+# Pull each file from the device.
+_backup() {
+    local info;
+    local d;
+    local size;
+
+    echo "Starting backup";
+
+    for info in "${INFOS[@]}"; do
+        [ -z "${info}" ] && continue;
+
+        d="${info%$INFO_SEPARATOR*}";
+        size="${info#*$INFO_SEPARATOR}";
+
+        [ "${d}${INFO_SEPARATOR}${size}" != "${info}" ] && _err "Syntax err: Failed to split dir info into 'dir' and 'size'";
+
+        [ -z "${size}" ] && size=0;
+
+        # echo "d: \"$d\" size: \"$size\""; #delete
+        # SIZE_DONE=$((SIZE_DONE + size)); #delete
+        # _percentDone;
+        # continue; #delete
+        # _c blue "echo Progress: ${SIZE_DONE}/${SIZE_TOTAL}KB $(_percentDone)%"; #delete
+        # continue; #delete
+
+        if _pull "${d}"; then
+            _dequeue;
+            _setSizeDone "${size}";
+        else
+            echo "${d}" >> "${TMP_FILE_DIRS}";
+            echo "${info}" >> "${TMP_FILE_INFOS}";
+            INCOMPLETE+=("${d}");
+        fi;
+
+        _c blue "echo Progress: ${SIZE_DONE}/${SIZE_TOTAL}KB $(_percentDone)%";
+    done;
+};
+
+_pull() {
+    local d="${*}";
+    local -i remove=1;
+
+    _c green "echo -n ==\> Pull \\\"${d}\\\"?";
+
+    if ! _Yn 3; then #no
+        _c green "echo -n ==\> Remove \\\"${d}\\\" from backup list?";
+
+        if _yN 30; then #yes
+             #dequeue
+            remove=0;
+        else
+            #requeue
+            _dequeue;
+            remove=1;
+        fi;
+
+        return $remove;
+    fi;
+
+    adb-pull "${SRC}/${d}";
+    return $?;
+};
+
+_dequeue() {
+    sed -i -e '1d' "${TMP_FILE_DIRS}";
+    sed -i -e '1d' "${TMP_FILE_INFOS}";
+};
+
+_setSizeDone() {
+    local size="${1}";
+    
+    SIZE_DONE=$((SIZE_DONE + size));
+
+    echo $SIZE_DONE > "${TMP_FILE_SIZE_DONE}";
+};
+
+_percentDone() {
+    local decimal;
+    local percent;
+
+    if [ -z "${SIZE_DONE}" ]; then
+        echo "00.00";
+    elif [ "${SIZE_DONE}" = "${SIZE_TOTAL}" ]; then
+        echo "100.00";
+    else
+        decimal=$(bc <<< "scale=4; ${SIZE_DONE}/${SIZE_TOTAL}");
+        percent=$(bc <<< "scale=4; ${decimal}*100");
+        # echo $percent; #delete
+
+        # yeah, this is nonsense. good luck
+        if [ "${percent}" = "0" ]; then
+            echo "00.00";
+
+        elif [ "${percent:0:1}" = "." ]; then
+            echo "00.${percent:1:2}";
+
+        elif [ "${percent:1:1}" = "." ]; then
+            echo "0${percent:0:1}.${percent:2:2}";
+
+        elif [ "${percent:2:1}" = "." ]; then
+            echo "${percent:0:2}.${percent:3:2}";
+
+        else
+            echo "${percent:1:2}.${percent:3:4}";
+        fi;
+    fi;
+}
+
+# Manage temporary files and report any final errors.
+_cleanUp() {
+    if [ -z "$(cat "${TMP_FILE_INFOS}")" ]; then
+        gvfs-trash "${TMP_FILE_INFOS}";
+        gvfs-trash "${TMP_FILE_DIRS}";
+        gvfs-trash "${TMP_FILE_SIZE_TOTAL}";
+        gvfs-trash "${TMP_FILE_SIZE_DONE}";
+    fi;
+    [ -z "${INCOMPLETE[*]}" ] && return 0;
+
+    echo;
+    echo "Did not pull ${INCOMPLETE[*]}";
+    _c green "echo -n ==\> Pull them now?";
+    if _yN 10; then
+        "$0";
+        exit $?;
+    fi;
+
+    _c green "echo -n ==\> Remember to pull these files the next time this script is run?";
+    _Yn 10 || gvfs-trash "${TMP_FILE_INFOS}";
+};
+
+declare -r SCRIPT_PATH="$0";
+declare -r SCRIPT="${SCRIPT_PATH##*/}";
+
+declare -r SCRIPT_DIR="$(dirname "$0")";
+declare -r TMP_FILE_DIRS="${SCRIPT_DIR}/.${SCRIPT}_dirs.tmp";
+declare -r TMP_FILE_INFOS="${SCRIPT_DIR}/.${SCRIPT}_dirs-infos.tmp";
+declare -r TMP_FILE_SIZE_TOTAL="${SCRIPT_DIR}/.${SCRIPT}_size-total.tmp";
+declare -r TMP_FILE_SIZE_DONE="${SCRIPT_DIR}/.${SCRIPT}_size-done.tmp";
+declare -r INFO_SEPARATOR=":/NULSEPARATOR/:";
+
+# Set bool options.
+declare DO_FORCE;
+
+# Set string options.
+declare SRC;
+declare DST;
+SRC="/sdcard";
+DST="${HOME}/tmp/$(basename ${SRC})_$(date +%Y-%m-%d)";
+
+_getopts "$@";
+
+_connect || exit $?;
+
+declare -a DIRS; #deprecate
+declare -a INFOS;
+# _getDirs || exit $?;
+_getInfos || exit $?;
+
+declare SIZE_TOTAL=0;
+_getSizeTotal || exit $?;
+
+declare SIZE_DONE=0;
+_getSizeDone || exit $?;
+
+declare -a INCOMPLETE;
+_q pushd "${DST}";
+_backup;
+_q popd;
+
+_cleanUp;
+
