@@ -1,0 +1,333 @@
+#!/bin/bash
+shopt -s extglob
+
+# Print help and exit.
+_help() {
+    local path="$0";
+    local script="${path##*/}";
+    cat << EOH >&2
+${script}
+DESCRIPTION:
+  Run adb pull and verify the integrity of the pulled files.
+USAGE:
+  ${script} "<files/directories>..."
+EOH
+
+    local status="${1}";
+    if ! [ "${status}" ]; then
+        status=0;
+    fi;
+    exit "${status}";
+}
+
+# Analyze user arguments.
+_getopts() {
+    # Declare bool options.
+    #local -a Bools=( 
+    #    ""
+    #);
+
+    # Iterate over user arguments.
+    local -i i;
+    local flag;
+    for ((i=1;i<=$#;i++)); do
+        eval flag="\$$i";
+        case "${flag}" in 
+            *(-)[hH] | *(-)[hH][eE][lL][pP] )
+                _help 0;
+                ;;
+        esac;
+    done;
+
+    # Set bool options.
+    #="${Bools[0]}"
+}
+
+# Set console color.
+# Optionally, run a command afterwards, and once the command returns,
+#   reset the console color to normal.
+_c() {
+    local -A Codes=( 
+        ["black"]="0" 
+        ["red"]="1" 
+        ["green"]="2" 
+        ["yellow"]="3" 
+        ["blue"]="4" 
+        ["magenta"]="5" 
+        ["cyan"]="6" 
+        ["white"]="7" 
+        ["bk"]="0" 
+        ["r"]="1" 
+        ["g"]="2" 
+        ["y"]="3" 
+        ["bu"]="4" 
+        ["m"]="5" 
+        ["c"]="6" 
+        ["w"]="7" 
+    );
+
+    local k c;
+    for k in "${!Codes[@]}"; do
+        [ "${k}" = "${1}" ] &&
+            c="${Codes[$k]}";
+    done;
+
+    [ -n "${c}" ] &&
+        tput setaf "${c}";
+    
+    [ -z "${*:2}" ] &&
+        return;
+    eval "${@:2}";
+    tput sgr0;
+}
+
+# Set the console color to bold.
+# Optionally, pass any arguments to function '_c'.
+_C() {
+    tput bold;
+    [ -n "$*" ] &&
+        _c "$@";
+}
+
+# Reset console color to normal.
+_u() {
+    tput sgr0;
+}
+
+# Echo each value in an array individually.
+_echecho() {
+    local message;
+    for message; do
+        echo "${message}";
+    done;
+}
+
+# Echo a command, and then evaluate it.
+_evalcho() {
+    echo "$@";
+    eval "$@";
+}
+
+# Remove an extension from a filename.
+_rmExt() {
+    local file="${1}";
+    local ext="${2}";
+    [ "${file:$((${#file}-1)):1}" = "." ] &&
+        file="$(_rmExt "${file}" "")";
+
+    if [[ "${file%\.${ext}*}" != "${file}" ]]; then
+        echo "${file%\.${ext}*}";
+    else
+        echo "${file%${ext}*}";
+    fi;
+}
+
+# Back up a file if it exists.
+_bak() {
+    local file="${1}";
+    if [ ! -e "${file}" ] || [ -e "${file}.bak" ]; then
+        return 0;
+    fi;
+
+    echo " " mv "${file}" "${file}.bak";
+    mv "${file}" "${file}.bak";
+}
+
+# Create a tar archive of the file to pull [if it is a directory].
+_tar() {
+    echo "Creating tar archive of '${BASE}'...";
+    echo " " adb shell \'"cd \"${PARENT_DIR}\" && tar -cf \"${BASE}.tar\" \"${BASE}\""\';
+    adb shell "cd \"${PARENT_DIR}\" && tar -cf \"${BASE}.tar\" \"${BASE}\"";
+
+    local valid;
+    echo "Verifying '${BASE}.tar'...";
+    valid="$(adb shell "v=\"$(tar -xOf \"${FILE}.tar\" &>/dev/null)\"; printf \$?;")";
+    if [ "${valid}" != 0 ]; then
+        _tar;
+    fi;
+}
+
+# Extract the pulled tar archive.
+_untar() {
+    _bak "${BASE}";
+    
+    echo "Removing temporary tar archive '${FILE}...";
+    echo "  adb shell rm ${FILE}";
+    adb shell "rm \"${FILE}\"";
+
+    echo "  tar -xf ${COPY}";
+    tar -xf "${COPY}" &&
+        rm "${COPY}"; 
+}
+
+# Wait for Android device to connect.
+_connect() {
+    local connected;
+    connected="$(adb devices | head -2 | tail -1)";
+    [ "${connected}" ] &&
+        return 0;
+
+    echo "Waiting for Android device to connect...";
+    adb wait-for-device &&
+        echo "  Android device connected.";
+}
+
+# Verify whether the remote file exists.
+_exists() {
+    local exists;
+    exists="$(adb shell "if [ -e \"${FILE}\" ]; then printf 0; fi")";
+    [ "${exists}" = 0 ] &&
+        return 0;
+    return 1;
+}
+
+# Run `adb pull` to copy the file from the Android device.
+_pull() {
+    _bak "${COPY}";
+    echo " " adb pull -p -a "${FILE}" "${COPY}";
+    adb pull -p -a "${FILE}" "${COPY}";
+}
+
+# Verify whether the md5sum of the pulled file matches that of the original.
+_verify() {
+    [ -e "${COPY}" ] ||
+        return 1;
+    echo "Verifying md5sum checksums...";
+
+    local md5File;
+    md5File="$(adb shell "md5sum \"${FILE}\"")";
+    echo "  ${md5File}";
+    md5File="${md5File%  *}";
+
+    local md5Copy;
+    md5Copy="$(md5sum "${COPY}")";
+    echo "  ${md5Copy}";
+    md5Copy="${md5Copy%  *}";
+
+    [ "${md5File}" = "${md5Copy}" ] &&
+        return 0;
+    return 1;
+}
+
+# Rerun script.
+_retry() {
+    if (($# == 0)); then
+        _retry "Failed to pull \"${FILE}\". Retrying...";
+        return $?;
+    fi;
+
+    _c red;
+    echo "$@";
+    _u;
+    [ -e "${COPY}" ] &&
+        rm -r "${COPY}";
+    "$0" "${FILE}";
+}
+
+# Run main function.
+_main() {
+    # Print in green the name of the target file in order to serve as a title.
+    #   (This makes the output easier to read when pulling multiple files.)
+    _c green echo "${FILE}";
+
+    # Wait for Android device to connect.
+    _connect;
+
+    # If the target file does not exist on the Android device, quit.
+    if ! _exists; then
+        echo here
+        _c red "echo \"${FILE}\" does not exist.";
+        return 1;
+    fi;
+
+    # Tar the target file if it is a directory
+    #   in order to check its md5sum later.
+    if [ "${DO_TAR}" ]; then
+        _tar &&
+            FILE="${FILE}.tar" &&
+            COPY="${COPY}.tar";
+    fi;
+
+    # Run `adb pull`.
+    _pull;
+    if (($? != 0)); then 
+        _retry "Failed to pull \"${FILE}\". Retrying...";
+        return $?;
+    fi;
+
+    # Compare the md5sum of the pulled file with that of the original one.
+    # If they do not match, remove the pulled file and rerun this script.
+    _verify;
+    if (($? != 0)); then 
+        _retry "${FILE} transferred incorrectly." "  Re-pulling \"${FILE}\"...";
+        return $?;
+    fi;
+    
+    # If the remote file was tarred earlier,
+    #   remove the temporary tar file on the Android device
+    #   and untar the pulled one.
+    if [ "${DO_TAR}" ]; then
+        _untar &&
+            FILE="$(_rmExt "${FILE}" "tar")" &&
+            COPY="$(_rmExt "${COPY}" "tar")";
+    fi;
+
+    echo "Successfully pulled \"${FILE}\".";
+
+    # Make the final line of this script's output
+    #   the name of the new/pulled file.
+    echo "${COPY}";
+}
+
+# Check if user requested help.
+_getopts "$@";
+
+# Declare the name of the target file to be pulled.
+declare FILE="${1}";
+[ -z "${FILE}" ] &&
+    FILE="/sdcard/";
+
+# Give the pulled/local file the basename of the file on the Android device.
+declare BASE;
+BASE="$(basename "${FILE}")";
+declare COPY="${BASE}";
+
+# If the name of the requested file does not begin with '/',
+#   guess the path of the target file.
+if [ "$(printf '%c' "${FILE}")" != "/" ]; then 
+
+    # `adb-pull sdcard` > `adb-pull /sdcard/`
+    if [ "${FILE}" = "sdcard" ]; then
+        FILE="/sdcard/";
+
+    # `adb-pull Downloads` > `adb-pull /sdcard/Downloads`
+    elif [ "${FILE}" = "${BASE}" ]; then
+        FILE="/sdcard/${FILE}";
+
+    # `adb-pull sdcard/Downloads` > `adb-pull /sdcard/Downloads`
+    else
+        FILE="/${FILE}";
+    fi;
+fi;
+
+# If the target file is a directory,
+#   prepare to tar it in order to read an md5sum later.
+declare IS_DIR;
+IS_DIR="$(adb shell "if [ -d \"${FILE}\" ]; then printf 0; fi")";
+if [[ "${IS_DIR}" == 0 ]] && [[ "${BASE}" != "sdcard" ]] ; then
+    declare DO_TAR=0;
+    declare PARENT_DIR;
+    PARENT_DIR="$(dirname "${FILE}")";
+fi;
+
+# Start the main function.
+_main;
+
+# Loop through this script for any other files the user requested.
+if (($# > 1)); then
+    echo;
+    $0 "${@:2}";
+fi;
+
+exit $?;
+
