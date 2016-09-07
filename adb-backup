@@ -1,0 +1,233 @@
+#!/bin/bash
+shopt -s extglob
+
+# Print help and exit.
+_help() {
+    local path="$0";
+    local script=${path##*/};
+    local fmt="$(date +%Y-%m-%d)";
+    cat << EOH >&2
+${script}
+DESCRIPTION:
+  Backup data on an Android device to an Android backup '.ab' archive.
+USAGE:
+  ${script} [OPTIONS] <backup-name>.ab
+OPTIONS:
+  n, normal [default]
+    Make a normal backup:
+      backup everything but shared storage / SD card contents
+  f, full, a, all
+    Make a full backup:
+      backup as much as possible,
+      including shared storage / SD card contents
+  q, quick, s, small
+    Make a quick backup:
+      do not backup apk's or shared storage / SD card contents
+
+When the name for the backup file is not specified, it will be one of these three:
+    ${fmt}.ab
+    ${fmt}_full.ab
+    ${fmt}_quick.ab
+EOH
+
+#'
+    if [ "${1}" ]; then
+        exit "${1}";
+    fi;
+    exit 1;
+}
+
+# Analyze user arguments.
+_getopts() {
+    # Declare arrays for commandline bool switches and string options.
+    local -a Bools;
+    local -a Strings;
+
+    # Iterate over user arguments.
+    local -i i;
+    local flag;
+    for ((i=1;i<=$#;i++)); do
+        eval flag="\$$i";
+        case "${flag}" in 
+            #*(-)[hH] | *(-)[hH][eE][lL][pP] )
+            *(-)[hH]*([eE][lL][pP]) )
+                _help;
+                ;;
+            *(-)[aA]*([lL]) )
+                Bools[0]=0;
+                ;;
+            *(-)[fF]*([uU]+([lL])) )
+                Bools[0]=0;
+                ;;
+            *(-)[qQ]*([uU][iI][cC][kK]) )
+                Bools[1]=0;
+                ;;
+            *(-)[sS]*([mM][aA]+([lL])) )
+                Bools[1]=0;
+                ;;
+            *(-)[lL]*([iI][mM][iI]+([tT])*([eE][dD])) )
+                Bools[1]=0;
+                ;;
+            * )
+                Strings+=( "${flag}" );
+                ;;
+        esac;
+    done;
+    
+    # Set bool options.
+    DO_FULL="${Bools[0]}";
+    DO_QUICK="${Bools[1]}";
+
+    # Set string options.
+    _evalopts "${Strings[*]}";
+}
+
+# Further analyze user arguments.
+_evalopts() {
+    if [ "$*" ]; then
+        AB="$*";
+        if ! _hasExt "${AB}" "ab"; then
+            AB="${AB}.ab";
+        fi;
+        return 0;
+    fi;
+
+    if [ "${DO_FULL}" ]; then
+        AB="$(date +%Y-%m-%d)_full.ab";
+    elif [ "${DO_QUICK}" ]; then
+        AB="$(date +%Y-%m-%d)_quick.ab";
+    else
+        AB="$(date +%Y-%m-%d).ab";
+    fi;
+}
+
+# Echo a command, and then evaluate it.
+_evalcho() {
+    echo "$@";
+    eval "$@";
+}
+
+# Exit with error 1 if the previous command returned an error.
+_err() {
+    if [[ $? == 0 ]]; then
+        return 0;
+    fi;
+
+    local err="$*";
+    if ! [ "${err}" ]; then
+        err="An error occurred. Cannot continue.";
+    fi;
+    echo "${err}";
+    exit 1;
+}
+
+# Run a command silently.
+_q() {
+    eval "$@" >&/dev/null;
+}
+
+# Remove an extension from a filename.
+_rmExt() {
+    local file="${1}";
+    local ext="${2}";
+    if [[ "${file:$((${#file}-1)):1}" == "." ]]; then
+        file="$(_rmExt "${file}" "")";
+    fi;
+
+    if [[ "${file%\.${ext}*}" != "${file}" ]]; then
+        echo "${file%\.${ext}*}";
+    else
+        echo "${file%${ext}*}";
+    fi;
+}
+
+# Check whether a file ends with a certain extension.
+_hasExt() {
+    local file="${1}";
+    local ext="${2}";
+    
+    # If globbing works, the file ends with the extension.
+    if [[ "${file}" != "${file%%\.${ext}*}" ]]; then
+        return 0;
+    fi;
+    return 1;
+}
+
+# Wait for Android device to connect.
+_connect() {
+    local connected;
+    connected="$(adb devices | head -2 | tail -1)";
+    if [ "${connected}" ]; then
+        return 0;
+    fi;
+    echo "Waiting for Android device to connect...";
+    adb wait-for-device;
+}
+
+# Run `adb backup` to backup an Android device.
+# Backup everything EXCEPT shared storage (SD card contents).
+_backup() {
+    local ab="${1}";
+    if ! [ "${ab}" ]; then
+        ab="$(date +%Y-%m-%d).ab";
+    elif ! _hasExt "${ab}" "ab"; then
+        ab="${ab}.ab";
+    fi;
+	
+    _connect;
+    _evalcho adb backup -f "${ab}" -apk -obb -noshared -all -system &&
+        echo "${ab}";
+}
+
+# Run `adb backup` to backup an Android device.
+# Backup everything INCLUDING shared storage (SD card contents).
+_backupFull() {
+    local ab="${1}";
+    if ! [ "${ab}" ]; then
+        ab="$(date +%Y-%m-%d).ab";
+    elif ! _hasExt "${ab}" "ab"; then
+        ab="${ab}.ab";
+    fi;
+	
+    _connect;
+    _evalcho adb backup -f "${ab}" -apk -obb -shared -all -system &&
+        echo "${ab}";
+}
+
+# Run `adb backup` to backup an Android device.
+# Do not backup apks.
+_backupQuick() {
+    local ab="${1}";
+    if ! [ "${ab}" ]; then
+        ab="$(date +%Y-%m-%d).ab";
+    elif ! _hasExt "${ab}" "ab"; then
+        ab="${ab}.ab";
+    fi;
+	
+    _connect;
+    #_evalcho adb backup -f "${ab}" -noapk -noobb -noshared -all -system;
+    _evalcho adb backup -f "${ab}" -noapk -noobb -noshared -all &&
+        echo "${ab}";
+    
+}
+
+# Declare bool variables.
+declare DO_FULL;
+declare DO_QUICK;
+
+# Declare string variables.
+declare AB;
+
+# Evaluate user arguments.
+_getopts "$@";
+_evalopts;
+
+# Backup Android device.
+if [ "${DO_FULL}" ]; then
+    _backupFull "${AB}";
+elif [ "${DO_QUICK}" ]; then
+    _backupQuick "${AB}";
+else
+    _backup "${AB}";
+fi;
+
