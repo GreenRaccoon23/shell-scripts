@@ -1,0 +1,13 @@
+#!/bin/bash
+
+_chrbin() {
+    echo $(printf \\$(echo "ibase=2; obase=8; $1" | bc));
+};
+
+_bin2ascii() {
+    for bin in $*; do
+        _chrbin $bin | tr -d '\n';
+    done;
+};
+
+_bin2ascii $*;
