@@ -1,0 +1,67 @@
+#!/bin/bash
+
+_aurtmp() {
+	#Required
+	tmp="${1}" ;
+	pkg="${2}" ;
+	#Optional
+	old="${3}" ;
+	new="${4}" ;
+
+	ytmp="${tmp}/yaourt-tmp-${USER}" ;
+	pkgdir="${ytmp}/aur-${pkg}" ;
+
+        pkgabv="`echo "${pkg%${pkg#??}}"`" ;
+	pkgz="${pkg}.tar.gz" ;
+	
+	mkdir -p "${ytmp}" ;
+	cd "${ytmp}" ;
+
+       	wget "https://aur.archlinux.org/packages/${pkgabv}/${pkg}/${pkgz}" ;
+	tar -xzvf "${pkgz}" ;
+	rm "${pkgz}" ;
+	mv -f "${pkg}" "${pkgdir}" ;
+	cd "${pkgdir}" ;
+
+	if [[ "${old}" != "" ]] ; then
+		pkgbuild="${pkgdir}/PKGBUILD" ;
+		_rp "${pkgbuild}" "${old}" "${new}" ;
+		vim "${pkgbuild}" ;
+	fi ;
+
+	makepkg -sic ;
+	rm -r "${ytmp}" ;
+};
+
+_rp() {
+	file="${1}" ;
+	old="${2}" ;
+	new="${3}" ;
+	dir="$(dirname "${file}")" ;
+	#Create temporary file with new line in place
+	cat "${file}"	| sed -e "s/${old}/${new}/" > "${dir}/temp_file" ;
+	#Copy the new file over the original file
+	mv "${dir}/temp_file" "${file}" ;
+};
+
+_rpLine() {
+	file="${1}" ;
+	line="${2}" ;
+	old="${3}" ;
+	new="${4}" ;
+	sed -i "${line}s/${old}/${new}/" "${file}"
+}
+
+tmp="${HOME}/build-aur";
+pkg="linux-ck";
+old="_BFQ_enable_.*";
+new="_BFQ_enable_=y";
+
+mkdir -p "${tmp}";
+
+#_aurtmp "${tmp}" "${pkg}" "${old}" "${new}" ;
+if yaourt -Sa --tmp "${tmp}" "${pkg}"; then
+    rm -r "${tmp}/yaourt-tmp-${USER}";
+    sudo update-grub;
+fi;
+exit $?;
