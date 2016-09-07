@@ -1,0 +1,65 @@
+#!/bin/zsh
+
+# Remove an extension from a filename.
+_rmExt() {
+    local filename="${1}";
+    local ext="${2}";
+
+    local extFirstChar="${ext:0:1}";
+    if [ "${extFirstChar}" != "." ]; then
+        ext=".${ext}";
+    fi;
+
+    local -i lenFilename=${#filename};
+    local -i iLast=$((lenFilename - 1));
+
+    # I have no idea why I did this check.
+    local filenameLastChar="${filename:${iLast}:1}";
+    if [ "${filenameLastChar}" = "." ]; then
+        filename="$(_rmExt "${filename}" "")";
+    fi;
+
+    local filenameWithoutExt="${filename%${ext}*}";
+
+    echo "${filenameWithoutExt}";
+}
+
+#  Trim the prefix of a string.
+_trPfx() {
+    local string="${1}";
+    local prefix="${2}";
+
+    local trimmedString="${string#*${prefix}}";
+    if [ "${trimmedString}" = "${string}" ]; then
+        trimmedString="$(echo "${string}" | perl -pe "s/^${prefix}(.*)/\1/g")";
+    fi;
+
+    echo "${trimmedString}";
+}
+
+# Trim the suffix of a string.
+_trSfx() {
+    local string="${1}";
+    local suffix="${2}";
+
+    local trimmedString="${string%${suffix}*}";
+    if [ "${trimmedString}" = "${string}" ]; then
+        trimmedString="$(echo "${string}" | perl -pe "s/^(.*?)${suffix}$/\1/g")";
+    fi;
+
+    echo "${trimmedString}";
+}
+
+# Remove a trailing '/' from a string if it exists.
+_fmtDir() {
+    local dir="$*";
+
+    local dirTrimmed="${dir}";
+
+    local lastChar="${dir: -1}";
+    if [ "${lastChar}" = "/" ]; then
+        dirTrimmed="${dir:1:-1}";
+    fi;
+
+    echo "${dirTrimmed}";
+}

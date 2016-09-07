@@ -1,0 +1,73 @@
+#!/bin/zsh
+
+# Ask user to answer a "yes or no" question.
+# Analyse the user's answer, with NO as the default.
+# Optionally, set a timeout for user input.
+_yN() {
+    local -i t="${1}";
+
+    local ans="null";
+    if [ "${2}" = '-q' ]; then
+        # Don't print anything, just read user input.
+        if [ "${t}" != 0 ]; then
+            read -t "${t}" "ans?" ;
+        else
+            read "ans?" ;
+        fi;
+
+    else
+
+        if [ "${t}" != 0 ]; then
+            read -t "${t}" "ans?${*:2} [y/N]: " ;
+        else
+            read "ans?$* [y/N]: " ;
+        fi;
+
+    fi;
+
+    case "${ans}" in
+        [yY] | [yY][eE][sS] )
+            return 0;
+            ;;
+        "null" )
+            echo;
+            ;;
+    esac;
+    return 1;
+}
+
+# Ask user to answer a "yes or no" question.
+# Analyse the user's answer, with YES as the default.
+# Optionally, set a timeout for user input.
+_Yn() {
+    local -i t="${1}";
+
+    local ans="null";
+    if [ "${2}" = '-q' ]; then
+
+        # Don't print anything, just read user input.
+        if [ "${t}" = 0 ]; then
+            read "ans?" ;
+        else
+            read -t "${t}" "ans?" ;
+        fi;
+
+    else
+        if [ "${t}" = 0 ]; then
+            read "ans?$* [Y/n]: " ;
+        else
+            read -t "${t}" "ans?${*:2} [Y/n]: " ;
+        fi;
+
+    fi;
+
+    case "${ans}" in
+        [nN] | [nN][oO])
+            return 1;
+            ;;
+        "null" )
+            echo;
+            ;;
+    esac;
+    return 0;
+}

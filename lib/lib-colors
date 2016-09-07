@@ -1,0 +1,48 @@
+#!/bin/zsh
+
+# Set console color.
+# Optionally, run a command afterwards, and once the command returns,
+#   reset the console color to normal.
+_c() {
+    local -A codeMap=( 
+        "black" "0" 
+        "red" "1" 
+        "green" "2" 
+        "yellow" "3" 
+        "blue" "4" 
+        "magenta" "5" 
+        "cyan" "6" 
+        "white" "7" 
+    );
+
+    local colorName;
+    local colorCode;
+    for colorName in "${(@k)codeMap}"; do
+        if [ "${colorName}" = "${1}" ]; then
+            colorCode="${codeMap[$colorName]}";
+        fi;
+    done;
+
+    if [ -n "${colorCode}" ]; then
+        tput setaf "${colorCode}";
+    fi;
+
+    if (($# < 2)); then
+        return;
+    fi;
+    eval "${@:2}";
+    tput sgr0;
+}
+
+# Set the console color to bold.
+# Optionally, pass any arguments to function '_c'.
+_C() {
+    tput bold;
+    [ -n "$*" ] &&
+        _c "$@";
+}
+
+# Reset console color to normal.
+_u() {
+    tput sgr0;
+}

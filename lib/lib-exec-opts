@@ -1,0 +1,42 @@
+#!/bin/zsh
+
+source lib-colors;
+
+# Echo a command, and then evaluate it.
+_evalcho() {
+    echo "$@";
+    eval "$@";
+}
+
+# Exit with status 1 after echoing an error message.
+_err() {
+    local err="$*";
+    if [ -z "${err}" ]; then
+        err="An error occurred. Cannot continue.";
+    fi;
+
+    _c red echo "${err}";
+    exit 1;
+}
+
+# If the previous command returned an error,
+#   echo an error message and then exit.
+_chkerr() {
+    local -i statusCode=$?;
+    if [ "${statusCode}" = 0 ]; then
+        return "${statusCode}";
+    fi;
+
+    local err="$*";
+    if [ -z "${err}" ]; then
+        err="An error occurred. Cannot continue.";
+    fi;
+
+    _c red echo "${err}";
+    exit "${statusCode}";
+}
+
+# Run a command silently.
+_q() {
+    eval "$@" >&/dev/null;
+}
