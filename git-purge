@@ -1,0 +1,137 @@
+#!/bin/bash
+shopt -s extglob;
+
+# If user requested help, print it.
+_chkHelp() {
+    case "${1}" in        
+        +(-)[hH]*([eE][lL][pP]) )
+            _help 0;
+            ;;
+        * )
+            return
+            ;;
+    esac;
+}
+
+# Print help and exit.
+_help() {
+    local path="$0";
+    local script=${path##*/};
+    cat << EOH >&2
+Usage:
+  ${script} <file>
+Decription:
+  Purge a file from the entire history of a git repo.
+EOH
+
+    if [ "${1}" ]; then
+        exit "${1}";
+    fi;
+    exit 1;
+}
+
+# Set console color.
+# Optionally, run a command afterwards, and once the command returns,
+#   reset the console color to normal.
+_c() {
+    local -A Codes=( 
+        ["black"]="0" 
+        ["red"]="1" 
+        ["green"]="2" 
+        ["yellow"]="3" 
+        ["blue"]="4" 
+        ["magenta"]="5" 
+        ["cyan"]="6" 
+        ["white"]="7" 
+    );
+
+    local k c;
+    for k in "${!Codes[@]}"; do
+        [ "${k}" = "${1}" ] &&
+            c="${Codes[$k]}";
+    done;
+
+    [ -n "${c}" ] &&
+        tput setaf "${c}";
+    
+    [ -z "${*:2}" ] &&
+        return;
+
+    eval "${@:2}";
+    tput sgr0;
+}
+
+# Set the console color to bold.
+# Optionally, pass any arguments to function '_c'.
+_C() {
+    tput bold;
+    [ -n "$*" ] &&
+        _c "$@";
+}
+
+# Reset console color to normal.
+_u() {
+    tput sgr0;
+}
+
+# Ask user to answer a "yes or no" question.
+# Analyse the user's answer, with NO as the default.
+_yN() {
+    local -i t="${1}";
+
+    local ans;
+    [ "${t}" != 0 ] &&
+        read -t "${t}" -p "${*:2}" ans ||
+        read -p "$*" ans;
+
+    case "${ans}" in [yY] | [yY][eE][sS])
+        return 0;
+    esac;
+    return 1;
+}
+
+# Purge a file from the entire history of a git repo.
+_purge() {
+    local file="${1}";
+
+    _c green echo "${file}";
+
+
+    echo "  git filter-branch --force --index-filter \\";
+    echo "  'git rm --cached --ignore-unmatch ${file}' \\";
+    echo "  --prune-empty --tag-name-filter cat -- --all";
+
+    local purgeCmd=(
+        git filter-branch --force --index-filter
+        \'git rm --cached --ignore-unmatch ${file}\'
+        --prune-empty --tag-name-filter cat -- --all
+    );
+    eval ${purgeCmd[@]};
+}
+
+# Force-push the changes to the git repo.
+_pushForce() {
+    _C green;
+    printf "==>";
+    _C white;
+    printf " Push changes to git repo? [y/N]: ";
+    _u;
+    if ! _yN; then
+        return;
+    fi;
+
+    echo "  git push origin --force --all";
+    git push origin --force --all;
+    echo "  git push origin --force --tags";
+    git push origin --force --tags;
+}
+
+_chkHelp "${1}";
+
+declare FILE;
+for FILE; do
+    _purge "${FILE}";
+    [ $? != 0 ] &&
+        continue;
+    _pushForce;
+done;
