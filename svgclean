@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# Set console color.
+_c() {
+    tput sgr0;
+    if (($# < 1)); then
+        return;
+    fi;
+    
+    local -A Codes=( 
+        ["black"]="0" 
+        ["red"]="1" 
+        ["green"]="2" 
+        ["yellow"]="3" 
+        ["blue"]="4" 
+        ["magenta"]="5" 
+        ["cyan"]="6" 
+        ["white"]="7" 
+        ["bk"]="0" 
+        ["r"]="1" 
+        ["g"]="2" 
+        ["y"]="3" 
+        ["bu"]="4" 
+        ["m"]="5" 
+        ["c"]="6" 
+        ["w"]="7" 
+    );
+
+    local k c;
+    for k in "${!Codes[@]}"; do
+        if [[ "${k}" != "${1}" ]]; then
+            continue;
+        fi;
+        c="${Codes[$k]}";
+    done;
+
+    if ! [ "${c}" ]; then
+        return;
+    fi;
+    tput setaf "${c}";
+}
+
+# Set bold console color.
+_C() {
+    tput bold;
+
+    if (($#<1)); then
+        return;
+    fi;
+    _c "${1}";
+}
+
+# Reset console color to normal.
+_u() {
+    tput sgr0;
+}
+
+declare IMAGE;
+for IMAGE; do
+    if ! [ -e "${IMAGE}" ]; then
+        _c red;
+        echo "${IMAGE} doesn't exist.";
+        _u;
+        continue;
+    fi;
+    svgcleaner-cli "${IMAGE}" "${IMAGE}";
+done;
