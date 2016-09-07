@@ -1,0 +1,12 @@
+#!/bin/bash
+
+declare npmDir="node_modules";
+
+if ! [ -d "${npmDir}" ]; then
+    echo "Running 'npm install'...";
+    npm install;
+else
+    echo "Removing '${npmDir}'";
+    npm uninstall;
+    gvfs-trash "${npmDir}";
+fi;
