@@ -1,0 +1,250 @@
+#!/bin/bash
+
+[ -z "${PARENT_DIR}" ] && PARENT_DIR="/usr/share/themes";
+[ -z "${THEME_OLD}" ] && THEME_OLD="Numix";
+[ -z "${THEME_NEW}" ] && THEME_NEW="Archdroid-Green";
+[ -z "${MAKE_FILE}" ] && MAKE_FILE="Numix-ArchBlue/Makefile";
+[ -z "${MAKE_FILE_PATH}" ] && MAKE_FILE_PATH="${PARENT_DIR}/${MAKE_FILE}";
+[ -z "${COLOR_BASE}" ] && COLOR_BASE="4caf50";
+
+THEME_TMP="${THEME_NEW}.tmp";
+THEME_BAK="${THEME_NEW}.bak";
+
+_main() {
+
+    sudo -v || return $?;
+
+    _copy || return $?;
+
+    pushd "${PARENT_DIR}/${THEME_TMP}" &>/dev/null || return $?;
+    _colorize || return $?;
+
+    pushd "gtk-3.0/assets" &>/dev/null || return $?;
+    _removeExtraImgs || return $?;
+    _recolorSvgs || return $?;
+    _addMissingImgs || return $?;
+    _svgsToPngs || return $?;
+    popd &>/dev/null || return $?;
+
+    _compile || return $?;
+
+    popd &>/dev/null || return $?;
+
+    _backup || return $?;
+    _install || return $?;
+};
+
+_copy() {
+
+    echo "Copying old theme...";
+
+    if [ -e "${PARENT_DIR}/${THEME_TMP}" ]; then
+        echo "  sudo rm -r '${PARENT_DIR}/${THEME_TMP}'";
+        sudo rm -r "${PARENT_DIR}/${THEME_TMP}";
+    fi;
+
+    echo "  sudo cp -a '${PARENT_DIR}/${THEME_OLD}' '${PARENT_DIR}/${THEME_TMP}'";
+    sudo cp -a "${PARENT_DIR}/${THEME_OLD}" "${PARENT_DIR}/${THEME_TMP}";
+
+    echo "  sudo cp -a '${MAKE_FILE_PATH}' '${PARENT_DIR}/${THEME_TMP}/Makefile'";
+    sudo cp -a "${MAKE_FILE_PATH}" "${PARENT_DIR}/${THEME_TMP}/Makefile";
+};
+
+_colorize() {
+
+    echo "Replacing hex colors in files...";
+
+    # SASS
+    sudo rp -rq -o '$base_color: if($variant == "dark", #333, #fff)' -n '$base_color: if($variant == "dark", #424242, #f5f5f5)' . || return $?;
+
+    sudo rp -rq -o '$selected_bg_color: #f0544c' -n '$selected_bg_color: rgba(#4caf50, 0.87)' . || return $?;
+    sudo rp -rq -o '$selected_fg_color: #fff' -n '$selected_fg_color: #f5f5f5' . || return $?;
+
+    sudo rp -rq -o '$info_fg_color: #fff' -n '$info_fg_color: #f5f5f5' . || return $?;
+    sudo rp -rq -o '$warning_fg_color: #fff' -n '$warning_fg_color: #f5f5f5' . || return $?;
+    sudo rp -rq -o '$question_fg_color: #fff' -n '$question_fg_color: #f5f5f5' . || return $?;
+    sudo rp -rq -o '$error_fg_color: #fff' -n '$error_fg_color: #f5f5f5' . || return $?;
+
+    sudo rp -rq -o '$warning_bg_color: #ef6c00' -n '$warning_bg_color: #f9a825' . || return $?;
+
+    # maybe remove next line
+    sudo rp -rq -o '$link_color: #3f51b5' -n '$link_color: #1793d1' . || return $?;
+    sudo rp -rq -o '$warning_color: #ef6c00' -n '$warning_color: #f9a825' . || return $?;
+
+    # Everything else
+    sudo rp -rq -o '#fc6f5d' -n "#${COLOR_BASE}" . || return $?;
+    sudo rp -rq -o '#d64937' -n "#${COLOR_BASE}" . || return $?;
+    sudo rp -rq -o '#2d2d2d' -n '#212121' . || return $?;
+    sudo rp -rq -o '#dedede' -n '#eeeeee' . || return $?;
+
+    # sudo rp -rq -o '#d9d9d9' -n '#dedede' . || return $?;
+
+    sudo rp -rq -o '#f0f0f0' -n '#f5f5f5' . || return $?;
+    sudo rp -rq -o '#f9f9f9' -n '#f5f5f5' . || return $?;
+
+    # sudo rp -rq -o '#bdbdbd' -n '#cbcbcb' . || return $?;
+
+    sudo rp -rq -o '#f0544c' -n "#${COLOR_BASE}" . || return $?;
+
+    sudo rp -rq -o '#444444' -n '#212121' . || return $?;
+    sudo rp -rq -o '#444' -n '#212121' . || return $?;
+
+    sudo rp -rq -o '#333333' -n '#424242' . || return $?;
+    sudo rp -rq -o '#333' -n '#424242' . || return $?;
+
+    sudo rp -rq -o '#555555' -n '#616161' . || return $?;
+    sudo rp -rq -o '#555' -n '#616161' . || return $?;
+
+    sudo rp -rq -o '#cccccc' -n '#bdbdbd' . || return $?;
+    sudo rp -rq -o '#ccc' -n '#bdbdbd' . || return $?;
+
+    sudo rp -rq -o '#dddddd' -n '#e0e0e0' . || return $?;
+    sudo rp -rq -o '#ddd' -n '#e0e0e0' . || return $?;
+
+    sudo rp -rq -o "${THEME_OLD}" -n "${THEME_NEW}" . || return $?;
+};
+
+_removeExtraImgs() {
+    echo "Removing extra files...";
+    echo '  sudo rm *.png';
+    sudo rm *.png;
+};
+
+_recolorSvgs() {
+
+    echo "Recoloring svg images...";
+
+    local baseName;
+    local imgBase;
+    local imgDark;
+    local baseDark="#4caf50";
+    local gutsDark="#393939";
+    local borderDark="#1f1f1f";
+
+    local insensitiveDark;
+    local bgInsensitiveDark1="#2a2a2a";
+    local fgInsensitiveDark1="#1f1f1f";
+    local bgInsensitiveDark2="#e0e0e0";
+    local fgInsensitiveDark2="#eeeeee";
+
+    local uncheckedDark;
+    local gutsUncheckedDark1="#393939";
+    local borderUncheckedDark1="#1f1f1f";
+    local gutsUncheckedDark2="#9e9e9e";
+    local borderUncheckedDark2="#757575";
+
+    for baseName in "checkbox-checked" "checkbox-mixed" "grid-selection-checked" "radio-selected" "radio-mixed"; do
+        imgBase="${baseName}.svg";
+        imgDark="${baseName}-dark.svg";
+
+        sudo rm "${imgBase}" || return $?;
+        sudo ln -sr "${imgDark}" "${imgBase}" || return $?;
+
+        sudo rp -q -o "${baseDark}" -n '#f5f5f5' "${imgDark}" || return $?;
+        sudo rp -q -o "${gutsDark}" -n "${baseDark}" "${imgDark}" || return $?;
+        sudo rp -q -o "${borderDark}" -n "${baseDark}" "${imgDark}" || return $?;
+    done;
+
+    for insensitiveDark in "checkbox-checked-insensitive-dark.svg" "checkbox-mixed-insensitive-dark.svg" "checkbox-unchecked-insensitive-dark.svg" "radio-mixed-insensitive-dark.svg" "radio-selected-insensitive-dark.svg" "radio-unselected-insensitive-dark.svg"; do
+        sudo rp -q -o "${bgInsensitiveDark1}" -n "${bgInsensitiveDark2}" "${insensitiveDark}" || return $?;
+        sudo rp -q -o "${fgInsensitiveDark1}" -n "${fgInsensitiveDark2}" "${insensitiveDark}" || return $?;
+    done;
+
+    for uncheckedDark in "checkbox-unchecked-dark.svg" "grid-selection-unchecked-dark.svg" "radio-unselected-dark.svg" ; do
+        sudo rp -q -o "${gutsUncheckedDark1}" -n "${gutsUncheckedDark2}" "${uncheckedDark}" || return $?;
+        sudo rp -q -o "${borderUncheckedDark1}" -n "${borderUncheckedDark2}" "${uncheckedDark}" || return $?;
+    done;
+};
+
+_addMissingImgs() {
+
+    echo "Adding missing images...";
+
+    # radio-selected* to radio-checked*
+
+    # echo "  sudo ln -sr 'radio-selected.svg' 'radio-checked.svg'";
+    sudo ln -sr 'radio-selected.svg' 'radio-checked.svg' || return $?;
+
+    # echo "  sudo ln -sr 'radio-selected-dark.svg' 'radio-checked-dark.svg'";
+    sudo ln -sr 'radio-selected-dark.svg' 'radio-checked-dark.svg' || return $?;
+
+    # echo "  sudo ln -sr 'radio-selected-insensitive.svg' 'radio-checked-insensitive.svg'";
+    sudo ln -sr 'radio-selected-insensitive.svg' 'radio-checked-insensitive.svg' || return $?;
+
+    # echo "  sudo ln -sr 'radio-selected-insensitive-dark.svg' 'radio-checked-insensitive-dark.svg'";
+    sudo ln -sr 'radio-selected-insensitive-dark.svg' 'radio-checked-insensitive-dark.svg' || return $?;
+
+    # radio-unselected* to radio-unchecked*
+    
+    # echo "  sudo ln -sr 'radio-unselected.svg' 'radio-unchecked.svg'";
+    sudo ln -sr 'radio-unselected.svg' 'radio-unchecked.svg' || return $?;
+
+    # echo "  sudo ln -sr 'radio-unselected-dark.svg' 'radio-unchecked-dark.svg'";
+    sudo ln -sr 'radio-unselected-dark.svg' 'radio-unchecked-dark.svg' || return $?;
+
+    # echo "  sudo ln -sr 'radio-unselected-insensitive.svg' 'radio-unchecked-insensitive.svg'";
+    sudo ln -sr 'radio-unselected-insensitive.svg' 'radio-unchecked-insensitive.svg' || return $?;
+
+    # echo "  sudo ln -sr 'radio-unselected-insensitive-dark.svg' 'radio-unchecked-insensitive-dark.svg'";
+    sudo ln -sr 'radio-unselected-insensitive-dark.svg' 'radio-unchecked-insensitive-dark.svg' || return $?;
+};
+
+_svgsToPngs() {
+
+    echo "Converting svg images to png images...";
+
+    local img;
+    local baseName;
+    for img in $(ls *.svg); do
+        baseName="$(rmext "${img}")";
+        # echo "  sudo rsvg-convert -a -o '${baseName}.png' '${baseName}.svg'";
+        sudo rsvg-convert -a -o "${baseName}.png" "${baseName}.svg" || echo "FAILED: '${baseName}.svg'";
+    done;
+};
+
+_compile() {
+    echo "Compiling SASS and gresource files...";
+    sudo make;
+};
+
+_backup() {
+
+    [ ! -e "${PARENT_DIR}/${THEME_NEW}" ] && return 0;
+
+    echo "Backing up '${PARENT_DIR}/${THEME_NEW}'...";
+
+    [ -e "${PARENT_DIR}/${THEME_BAK}" ] && echo "  sudo rm -r '${PARENT_DIR}/${THEME_BAK}'";
+    [ -e "${PARENT_DIR}/${THEME_BAK}" ] && sudo rm -r "${PARENT_DIR}/${THEME_BAK}" || return $?;
+
+    echo "  sudo mv '${PARENT_DIR}/${THEME_NEW}' '${PARENT_DIR}/${THEME_BAK}'";
+    sudo mv "${PARENT_DIR}/${THEME_NEW}" "${PARENT_DIR}/${THEME_BAK}" || return $?;
+
+    echo "  sudo rp -rq -o '${THEME_NEW}' -n '${THEME_NEW}-bak' '${PARENT_DIR}/${THEME_BAK}'";
+    sudo rp -rq -o "${THEME_NEW}" -n "${THEME_NEW}-bak" "${PARENT_DIR}/${THEME_BAK}";
+};
+
+_install() {
+
+    echo "Installing '${PARENT_DIR}/${THEME_NEW}'...";
+
+    if [ -e "${PARENT_DIR}/${THEME_NEW}" ]; then
+        echo "'${PARENT_DIR}/${THEME_NEW}' should not still exist";
+        exit 1;
+    fi;
+
+    if [ ! -e "${PARENT_DIR}/${THEME_TMP}" ]; then
+        echo "'${PARENT_DIR}/${THEME_TMP}' should exist";
+        exit 1;
+    fi;
+
+    echo "  sudo mv '${PARENT_DIR}/${THEME_TMP}' '${PARENT_DIR}/${THEME_NEW}'";
+    sudo mv "${PARENT_DIR}/${THEME_TMP}" "${PARENT_DIR}/${THEME_NEW}";
+};
+
+if _main; then
+    echo "Success!";
+else
+    statusCode=$?;
+    echo "Failed";
+    exit $statusCode;
+fi;
