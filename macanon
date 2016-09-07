@@ -1,0 +1,112 @@
+#!/bin/bash
+
+# Set console color.
+_c() {
+    if (($# == 0)); then
+        tput sgr0;
+        return;
+    fi;
+    
+    local -A Codes=( 
+        ["black"]="0" ["red"]="1" ["green"]="2" ["yellow"]="3" 
+        ["blue"]="4" ["magenta"]="5" ["cyan"]="6" ["white"]="7" 
+        ["bk"]="0" ["r"]="1" ["g"]="2" ["y"]="3" 
+        ["bu"]="4" ["m"]="5" ["c"]="6" ["w"]="7" 
+    );
+
+    local k c;
+    for k in "${!Codes[@]}"; do
+        if [[ "${k}" != "${1}" ]]; then
+            continue;
+        fi;
+        c="${Codes["$k"]}";
+    done;
+
+    if [ ! "${c}" ]; then
+        return;
+    fi;
+    tput setaf "${c}";
+}
+
+_u() {
+    tput sgr0;
+}
+
+# Print a line break.
+# Optionally, run a command first in order to colorize it.
+_line() {
+    if (($# > 0)); then
+        eval "$@";
+    fi;
+
+    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' =;
+    
+    if (($# > 0)); then
+        _u;
+    fi;
+}
+
+_choose() {
+    ALL_DEVICES="$(
+        ip link show | 
+        grep "^[0-9]" | 
+        sed -re 's/([0-9].*?):.*/\1/'
+    )";
+
+    _c green;
+    local d;
+    for d in "${ALL_DEVICES[@]}"; do
+        echo "${d}";
+    done;
+    printf "\n==> Enter device: \n";
+    _line;
+    printf "==> ";
+    _u;
+
+    local -i choice;
+    read -p "" choice;
+
+    DEVICE="$(
+        ip link show | 
+        grep "^${choice}" | 
+        sed -re 's/...(.*?):.*/\1/'
+    )";
+    echo "${DEVICE}";
+}
+
+_findPerm() {
+    PERM="$(sudo macchanger -s "${DEVICE}"| tail -n 1)";
+    PERM="${PERM#Permanent MAC: }";
+}
+
+_findCurr() {
+    CURR="$(sudo macchanger -s "${DEVICE}"| head -n 1)";
+    CURR="${CURR#Current MAC:   }";
+}
+
+_changeMac() {
+    sudo ip link set "${DEVICE}" down;
+    if [[ "${CURR}" == "${PERM}" ]]; then
+        sudo macchanger -a "${DEVICE}";
+        [ "${PGL}" ] && pglgui &>/dev/null &disown;
+    else
+        sudo macchanger -p "${DEVICE}";
+    fi;
+    sudo ip link set "${DEVICE}" up;
+}
+
+declare -r PGL="${1}";
+
+sudo -v;
+
+declare -a ALL_DEVICES;
+declare DEVICE;
+_choose;
+
+declare PERM;
+_findPerm;
+
+declare CURR;
+_findCurr;
+
+_changeMac;
