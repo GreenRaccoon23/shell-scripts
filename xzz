@@ -1,0 +1,412 @@
+#!/bin/bash
+shopt -s extglob
+
+# Read the '_help' function for usage.
+
+# Print help and exit.
+_help() {
+    local -a Usage=( 
+        "Usage:"
+        "    ${SCRIPT} <file/directory-to-compress>"
+        " Or:"
+        "    ${SCRIPT} <${EXT}-archive-to-decompress>.${EXT}"
+        " Or:"
+        "    ${SCRIPT} <name-of-archive-to-create> <files/directories-to-compress>..."
+        " Or:"
+        "    ${SCRIPT} -a <files/archives/directories-to-compress/decompress>..."
+        "        (Equivalent to running this script in a 'for' loop.)" 
+
+    );
+    local m;
+    for m in "${Usage[@]}"; do
+        echo "${m}";
+    done;
+    exit 1;
+}
+
+# Analyze user arguments.
+_getopts() {
+    if (($# == 0)); then
+        _help;
+    fi;
+
+    # Declare bool options.
+    local -a Bools=( 
+        ""
+        ""
+        ""
+        ""
+    );
+
+    case "${1}" in
+        [hH] | [hH][eE][lL][pP] )
+            if ! [ "${2}" ]; then
+                _help;
+            fi;
+            ;;
+    esac;
+
+    local flag;
+    for ((i=1;i<=$#;i++)); do
+        eval flag="\$$i";
+        case "${flag}" in 
+            +(-)[hH] | +(-)[hH][eE][lL][pP] )
+                _help;
+                ;;
+            +(-)[cC] )
+                Bools[0]=0;
+                ;;
+            +(-)[dD] )
+                Bools[1]=0;
+                ;;
+            +(-)[tT] | +(-)[tT][aA][rR] )
+                Bools[2]=0;
+                ;;
+            +(-)[aA] | +(-)[aA][lL][lL] )
+                Bools[3]=0;
+                ;;
+        esac;
+    done;
+    
+    # Set bool options.
+    DO_COMPRESS="${Bools[0]}";
+    DO_DECOMPRESS="${Bools[1]}";
+    DO_LOOP="${Bools[2]}";
+
+    local b;
+    for b in "${Bools[@]}"; do
+        if [ "${b}" ]; then
+            return;
+        fi;
+    done;
+
+    _evalopts "$@";
+}
+
+# If user did not pass any command switches, set them automatically.
+_evalopts() {
+    if (($# == 0)); then
+        _help;
+    fi;
+    
+    if [ "${2}" ]; then
+        if ! _isTar "${1}" || _isXz "${1}"; then
+            DO_LOOP=0;
+        else
+            DO_COMPRESS=0;
+            DO_TAR_ALL=0;
+        fi;
+    
+    elif _isXz "${1}"; then
+        DO_DECOMPRESS=0;
+
+    else
+        DO_COMPRESS=0;
+        if ! _isTar "${1}"; then
+            DO_TAR=0;
+        fi;
+
+    fi;
+}
+
+# Run a command silently.
+_q() {
+    eval "$@" >/dev/null;
+}
+
+# Exit with error 1 if the previous command returned an error.
+_err() {
+    if [[ $? != 0 ]]; then
+        exit 1;
+    fi;
+}
+
+# Echo message and exit.
+_errcho() {
+    echo "$@";
+    exit 1;
+}
+
+# Echo a command and then evaluate it.
+_evalcho() {
+    echo "$@";
+    eval "$@";
+}
+
+# Check user response to a 'yes or no' question.
+# Default to 'no'.
+_yN() {
+    case "${1}" in
+        [yY] | [yY][eE][sS] )
+            return 1;
+            ;;
+        *)
+            return 0;
+            ;;
+    esac;
+}
+
+# Remove an extension from a filename.
+_rmExt() {
+    local file="${1}";
+    local ext="${2}";
+    if [[ "${file:$((${#file}-1)):1}" == "." ]]; then
+        file="$(_rmExt "${file}" "")";
+    fi;
+
+    if [[ "${file%\.${ext}*}" != "${file}" ]]; then
+        echo "${file%\.${ext}*}";
+    else
+        echo "${file%${ext}*}";
+    fi;
+}
+
+# Check whether a file ends with a certain extension.
+_hasExt() {
+    local file="${1}";
+    local ext="${2}";
+    if [[ "${file}" != "${file%%\.${ext}*}" ]]; then
+        # If globbing worked, the file ends with the extension.
+        return 0;
+    fi;
+    return 1;
+}
+
+# Check whether a file is an 'sz' archive.
+_isXz() {
+    local file="${1}";
+    if _hasExt "${file}" "xz"; then
+        return 0;
+    fi;
+    return 1;
+}
+
+# Check whether a file is a 'tar' archive.
+_isTar() {
+    local file="${1}";
+    if _hasExt "${file}" "tar"; then
+        return 0;
+    fi;
+    return 1;
+}
+
+# If a file exists with the same name as the one to be created, back it up.
+_bak() {
+    local file="${1}";
+    if ! [ -e "${file}" ]; then
+        return 0;
+    fi;
+
+    _evalcho "cp -a \"${file}\" \"${file}.bak\"";
+}
+
+# Create a tar archive of a file if it is not already one.
+_tar() {
+    if (($# == 0)); then
+        return 1;
+    fi;
+
+    if [ "${2}" ]; then
+        _tarAll "$@";
+        return;
+    fi;
+
+    local file="${1}";
+    if _isTar "${file}"; then
+        return 0;
+    fi;
+    
+    if [ "${DIR}" ]; then
+        file="${file##*${DIR}/}";
+        _q pushd "${DIR}";
+    fi;
+    
+    _bak "${file}.tar";
+    _evalcho "tar -cf \"${file}.tar\" \"${file}\"";
+    _err;
+
+    if [ "${DIR}" ]; then
+        _q popd;
+        mv "${1}.tar" .;
+    fi;
+}
+
+# Tar multiple files.
+_tarAll() {
+    local tar="${1}";
+    if ! _isTar "${tar}"; then
+        tar="${tar}.tar";
+    fi;
+
+    local -a Files=( "$@" );
+    Files=( "${Files[@]:1}" );
+    
+    _bak "${tar}"; 
+
+    local f;
+    printf 'tar -cf "%s"' "${tar}";
+    for f in "${Files[@]}"; do
+        printf '"%s"' "${f}";
+    done;
+    printf '\n';
+    tar -cf "${tar}" "${Files[@]}";
+    _err;
+}
+
+# Extract a tar archive.
+_untar() {
+    if (($# == 0)); then
+        return 1;
+    fi;
+
+    local tar="${1}";
+    if ! _isTar "${tar}"; then
+        return 1;
+    fi;
+
+    local base;
+    base="$(_rmExt "${tar}" "tar")";
+    _bak "${base}";
+    _evalcho "tar -xf \"${tar}\"";
+    _err;
+}
+
+# Compress to an 'xz' archive.
+_xz() {
+    if (($# == 0)); then
+        return 1;
+    fi;
+
+    local file="${1}";
+    if _isXz "${file}"; then
+        _unxz "${file}";
+        return;
+    fi;
+
+    if _isTar "${file}" && [ "${DIR}" ]; then
+        _evalcho "cp -a \"${file}\" \"${DIR}/\"";
+        _err;
+    elif ! _isTar "${file}"; then
+        _tar "${file}";
+        _err;
+        file="${file}.tar";
+    fi;
+        
+    if [ "${DIR}" ]; then
+        file="${file##*${DIR}/}";
+    fi;
+
+    local cmd="xz -zv -T 0 -e9 \"${file}\"";
+    _evalcho "${cmd}";
+    _err;
+    
+    local test="xz -t \"${file}.xz\""
+    if ! _evalcho "${test}"; then
+        rm "${file}.xz";
+        $0 "${1%\.tar*}";
+        exit;
+    fi;
+    echo "${file}.xz";
+    #echo "\"${file}.xz\"";
+}
+
+# Create a tar archive of files.
+# Then compress it to an 'xz' archive.
+_xzAll() {
+    local tar="${1}";
+    if ! _isTar "${tar}"; then
+        tar="${tar}.tar";
+    fi;
+
+    _tarAll "$@" &&
+        _xz "${tar}";
+}
+
+# Decompress an xz archive.
+# If there is an underlying tar archive, decompress it.
+#   If successful, also remove it.
+_unxz() {
+    if (($# == 0)); then
+        return 1;
+    fi;
+
+    local xz="${1}";
+    if ! _isXz "${xz}"; then
+        return 1;
+    fi;
+
+    if [ "${DIR}" ]; then
+        _evalcho "cp -a \"${xz}\" .";
+        xz="${xz##*${DIR}/}";
+    fi;
+
+    _evalcho "unxz \"${xz}\"";
+    _err;
+
+    local tar="$(_rmExt "${xz}" "xz")";
+    if ! _isTar "${tar}"; then
+        return 0;
+    fi;
+    _untar "${tar}"
+    _err;
+    rm "${tar}";
+    local file="$(_rmExt "${tar}" "tar")";
+    echo "${file}";
+    #echo \""${file}"\";
+}
+
+# For each parameter, run this script with that parameter.
+_loop() {
+    local file;
+    for file; do
+        "$0" "${file}";
+    done;
+}
+
+# Declare variables for this script's name and path.
+declare -r SCRIPT_PATH="$0";
+declare -r SCRIPT=${SCRIPT_PATH##*/};
+
+# Declare bool variables.
+declare DO_COMPRESS;
+declare DO_DECOMPRESS;
+declare DO_TAR;
+declare DO_LOOP;
+declare DO_TAR_ALL;
+
+# Declare other global variables.
+declare -r EXT="xz";
+
+# Analyze user arguments.
+_getopts "$@";
+
+if [ "${DO_LOOP}" ]; then
+    _loop "$@";
+    exit;
+fi;
+
+declare FILE="${1}";
+
+declare DIR;
+DIR="$(dirname "${FILE}")";
+if [[ "${DIR}" == "." ]]; then
+    DIR="";
+elif [[ "${DIR}" == "${PWD}" ]] && [ -e "${FILE}" ]; then
+    DIR="";
+fi;
+
+if [ "${DO_DECOMPRESS}" ]; then
+    _unxz "${FILE}";
+    _err;
+
+elif [ "${DO_TAR_All}" ]; then
+    _xzAll "$@";
+    _err;
+
+else
+    _xz "${FILE}";
+
+fi;
+
+_err;
+exit 0;
