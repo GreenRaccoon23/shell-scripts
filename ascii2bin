@@ -1,0 +1,15 @@
+#!/bin/bash
+
+_ordbin() {
+  a=$(printf '%d' "'$1")
+  echo "obase=2; $a" | bc
+};
+
+_ascii2bin() {
+    echo -n $* | while IFS= read -r -n1 char; do
+        _ordbin $char | tr -d '\n';
+        echo -n " ";
+    done;
+};
+
+_ascii2bin $*;
