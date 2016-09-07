@@ -1,0 +1,18 @@
+#!/bin/bash
+
+declare -r BOWER_CONFIG_FILE=".bowerrc";
+
+declare bowerDir="bower_components";
+
+if [ -f "${BOWER_CONFIG_FILE}" ]; then
+    bowerDir="$(grep "${BOWER_CONFIG_FILE}" -e '"directory"' | sed -re 's/.*: "(.*)"/\1/g')";
+fi;
+
+if ! [ -d "${bowerDir}" ]; then
+    echo "Running 'bower install'...";
+    bower install;
+else
+    echo "Removing '${bowerDir}'";
+    bower uninstall;
+    gvfs-trash "${bowerDir}";
+fi;
