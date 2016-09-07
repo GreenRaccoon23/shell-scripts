@@ -1,0 +1,208 @@
+#!/bin/zsh
+
+zmodload zsh/mapfile;
+
+source lib-colors;
+source lib-exec-opts;
+source lib-input;
+source lib-fmt;
+
+declare -r SCRIPT_PATH="$0";
+declare -r SCRIPT_NAME="${SCRIPT_PATH##*/}";
+
+declare -r SCRIPT_DIR="$(dirname "$0")";
+declare -r TMP_FILE="${SCRIPT_DIR}/.${SCRIPT_NAME}.tmp";
+
+# Set bool options.
+declare -i DoForce;
+
+# Set string options.
+declare -r SRC="/sdcard";
+declare -r DST="${HOME}/tmp/$(basename ${SRC})_$(date +%Y-%m-%d)";
+
+declare -a DIRS;
+declare -a INCOMPLETE;
+
+_init() {
+    _getopts "$@";
+    _connect || exit $?;
+    _getDirs || exit $?;
+}
+
+_main() {
+    _q pushd "${DST}";
+    _backup;
+    _q popd;
+
+    _cleanUp;
+}
+
+# Print help and exit.
+_help() {
+    local path="$0";
+    local script=${path##*/};
+    local fmt="$(date +%Y-%m-%d)";
+    local bin="${HOME}/bin"
+    cat << EOH >&2
+${script}
+DESCRIPTION:
+  Pull an Android devices ${SRC} contents to ${DST}.
+USAGE:
+  ${SCRIPT_NAME} [OPTIONS] [<remote-file-to-pull>] [<local-directory-to-save>]
+OPTIONS:
+  r, resume, c, continue [default]
+    Resume a backup operation, if one did not complete earlier.
+    Useful when you need to cancel this tool and resume it later
+    or when it previously was cancelled by accident.
+  a, all, f, force, full
+    Force redo a a full backup, even if a previous one did not complete.
+    CAUTION: Any existing files will be overwritten.
+DEFAULT:
+  ${SCRIPT_NAME} -r ${SRC} ${DST}
+NOTE:
+  Requires that the shell script "adb-pull" is in the '\$PATH'.
+  (E.g., place "${SCRIPT_NAME}" in "${HOME}/bin/" and 
+    add 'export PATH=\$PATH:\$HOME/bin' to '~/.zshrc'.)
+EOH
+
+    [ -n "${1}" ] &&
+        exit "${1}";
+    exit 1;
+}
+
+# Analyze user arguments.
+_getopts() {
+    # Declare arrays for commandline bool switches and string options.
+    local -a boolOpts;
+    local -a stringOpts;
+
+    # Iterate over user arguments.
+    local -i i;
+    local flag;
+    for ((i=1;i<=$#;i++)); do
+        eval flag="\$$i";
+        case "${flag}" in 
+            *(-)[hH]*([eE][lL][pP]) )
+                _help;
+                ;;
+            *(-)[rR]*([eE][sS][uU][mM][eE]) )
+                boolOpts[0]=1;
+                ;;
+            *(-)[cC]*([oO][nN][tT][iI][nN][uU][eE]) )
+                boolOpts[0]=1;
+                ;;
+            *(-)[aA]*([lL]) )
+                boolOpts[1]=1;
+                ;;
+            *(-)[fF]*([uU]+([lL])) )
+                boolOpts[1]=1;
+                ;;
+            *(-)[fF]*([oO][rR][cC][eE]) )
+                boolOpts[1]=1;
+                ;;
+            * )
+                stringOpts+=( "${flag}" );
+                ;;
+        esac;
+    done;
+    
+    # Set bool options.
+    DoForce="${boolOpts[1]}";
+    if [ "${DoForce}" = 1 ]; then
+        gvfs-trash "${TMP_FILE}";
+    fi;
+
+    # Set string options.
+    if [ -n "${stringOpts[0]}" ]; then
+        SRC="$(_fmtDir "${stringOpts[0]}")";
+    fi;
+
+    if [ -n "${stringOpts[1]}" ]; then
+        DST="$(_fmtDir "${stringOpts[1]}")";
+    fi;
+
+    mkdir -p "${DST}";
+}
+
+# Wait for Android device to connect.
+_connect() {
+    local connected;
+    connected="$(adb devices | head -2 | tail -1)";
+    if [ "${connected}" ]; then
+        return 0;
+    fi;
+    echo "Waiting for Android device to connect...";
+    adb wait-for-device;
+}
+
+# Store the target directories into an array
+# and save them in a temporary file.
+_getDirs() {
+    if [ ! -e "${TMP_FILE}" ]; then
+        echo " " adb shell "ls --color=never -1A ${SRC}/" '>' "${TMP_FILE}";
+        adb shell "ls --color=never -1A ${SRC}/" > "${TMP_FILE}";
+    fi;
+    
+    local -a tmpFileLines=( "${(f)mapfile[$TMP_FILE]}" );
+    local line;
+    for line in $tmpFileLines; do
+        DIRS+=( "${line:0:-1}" );
+    done;
+    # gvfs-trash "${TMP_FILE}";
+    # exit;
+
+    if [ -z "${DIRS[*]}" ]; then
+        _err "Failed to get directories under ${SRC}/.";
+    fi;
+}
+
+# Pull each file from the device.
+_backup() {
+    local d;
+    local -i isFirst=0;
+    for d in "${DIRS[@]}"; do
+        [ -z "${d}" ] &&
+            continue;
+
+        if [ "${isFirst}" = 0 ]; then
+            isFirst=1;
+        else
+            echo;
+        fi;
+
+        _c green;
+        echo -n "Pull ${d}?";
+        _u;
+        ( 
+            _Yn 3 &&
+                adb-pull "${SRC}/${d}";
+        ) || (
+            echo "${d}" | tee -a "${TMP_FILE}";
+            INCOMPLETE+=( "${d}" );
+        )
+        sed -i -e '1d' "${TMP_FILE}";
+    done;
+}
+
+# Manage temporary files and report any final errors.
+_cleanUp() {
+    [ -z "$(cat "${TMP_FILE}")" ] &&
+        gvfs-trash "${TMP_FILE}";
+    [ -z "${INCOMPLETE[*]}" ] &&
+        return 0;
+
+    echo;
+    echo "Did not pull ${INCOMPLETE[*]}";
+    _c green "echo -n ==\> Pull them now?";
+    if _yN 10; then
+        "$0";
+        exit $?;
+    fi;
+
+    _c green "echo -n ==\> Remember to pull these files the next time this script is run?";
+    _Yn 10 ||
+        gvfs-trash "${TMP_FILE}";
+}
+
+_init "$@";
+_main;
