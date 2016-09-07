@@ -1,0 +1,20 @@
+#!/bin/bash
+
+_md5() {
+    echo "${1}"
+    md5sum "${1}" | perl -pe 's/(^.*?)\s.*/    \1\n/';
+}
+
+title='Generating MD5 checksum...';
+[[ "%n" != "%N" ]] &&
+    title='Generating MD5 checksums...';
+
+(
+    for f; do
+        _md5 "$f";
+    done;
+    printf "Done.";
+) | zenity --text-info \
+           --title "${title}" \
+           --height 480 \
+           --width 480;
