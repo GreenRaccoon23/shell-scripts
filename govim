@@ -1,0 +1,104 @@
+#!/bin/bash
+shopt -s extglob;
+
+_isFlag() {
+    case "${1}" in
+        *(-)[${2}${2^^}] )
+            return 0;
+            ;;
+        * )
+            return 1;
+            ;;
+    esac;
+}
+
+_clear() {
+    [ -e "${TMP}" ] &&
+        rm "${TMP}";
+
+    cat << EOF >> "${TMP}"
+func main() {
+    
+}
+EOF
+}
+
+_write() {
+    [ -e "${FILE}" ] && rm "${FILE}";
+
+    cat << EOF >> "${FILE}"
+package main
+
+import (
+	"fmt"
+	"bytes"
+)
+
+var (
+    buffer bytes.Buffer
+)
+
+// Pass to fmt.Println().
+func print(a ...interface{}) {
+    fmt.Println(a...)
+}
+
+// Pass to fmt.Printf().
+func printf(format string, a ...interface{}) {
+	fmt.Printf(format, a...)
+}
+
+// Concatenate strings together into one string.
+func concat(slc ...string) string {
+    b := bytes.NewBuffer(nil)
+    defer b.Reset()
+	for _, s := range slc {
+		b.WriteString(s)
+	}
+	return b.String()
+}
+
+// Convert a string into a slice.
+func slc(args ...string) []string {
+	return args
+}
+
+EOF
+    cat "${TMP}" >> "${FILE}";
+}
+
+_run() {
+    "${VIM}" -n -X -c :wq "${FILE}";
+    go run "${FILE}";
+}
+
+_edit() {
+    "${VIM}" -c 'let g:go_fmt_command="gofmt" | let g:go_fmt_fail_silently=1 | star' +2 "${TMP}";
+    _write;
+}
+
+declare -r VIM="vim";
+#declare -r VIM="nvim";
+declare -r FILE="govim.go";
+declare -r TMP=".govimtmp.go";
+
+pushd "${GOPATH}" &>/dev/null;
+
+[ -n "${1}" ] ||
+    _clear;
+
+if _isFlag "${1}" "s"; then
+    "${VIM}" "${FILE}";
+    exit $?;
+fi;
+
+declare OLD="$(cat "${TMP}")";
+_edit;
+
+declare NEW="$(cat "${TMP}")";
+[[ "${OLD}" != "${NEW}" || -n "${1}" ]] ||
+    exit $?;
+_run;
+
+popd &>/dev/null;
+
