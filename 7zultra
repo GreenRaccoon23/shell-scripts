@@ -1,0 +1,15 @@
+#!/bin/bash
+
+_7z() {
+    local cmd;
+    cmd="7z a -t7z -m0=lzma -mx=9 -mfb=64 -md=32m -ms=on \"${1}\" \"${2}\"";
+    echo "${cmd}";
+    eval "${cmd}";
+}
+
+if (($#==1)); then
+    _7z "${1}.7z" "${1}";
+    exit;
+fi;
+
+_7z ${1} ${@:2};
