@@ -244,17 +244,17 @@ _verifyChecksums() {
         return 1;
     echo "Verifying md5sum checksums...";
 
-    local md5File;
-    md5File="$(adb shell "md5sum \"${SRC}\"")";
-    echo "  ${md5File}";
-    md5File="${md5File%  *}";
+    local md5Src;
+    md5Src="$(adb shell "md5sum \"${SRC}\"")";
+    echo "  ${md5Src}";
+    md5Src="${md5Src%  *}";
 
-    local md5Copy;
-    md5Copy="$(md5sum "${DST}")";
-    echo "  ${md5Copy}";
-    md5Copy="${md5Copy%  *}";
+    local md5Dst;
+    md5Dst="$(md5sum "${DST}")";
+    echo "  ${md5Dst}";
+    md5Dst="${md5Dst%  *}";
 
-    [ "${md5File}" = "${md5Copy}" ] &&
+    [ "${md5Src}" = "${md5Dst}" ] &&
         return 0;
     return 1;
 };
