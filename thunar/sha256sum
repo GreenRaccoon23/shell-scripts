@@ -1,0 +1,23 @@
+#!/bin/bash
+
+declare cmd='sha256sum';
+declare name='SHA256';
+declare title="Generating ${name} checksum...";
+[ "%n" != "%N" ] && title="Generating ${name} checksums...";
+declare height='560';
+declare width="${height}";
+
+_checksum() {
+    echo "${1}";
+    "${cmd}" "${1}" | perl -pe 's/(^.*?)\s.*/    \1\n/';
+}
+
+(
+    for f; do
+        _checksum "$f";
+    done;
+    printf "Done.";
+) | zenity --text-info \
+           --title "${title}" \
+           --height "${height}" \
+           --width "${width}";
