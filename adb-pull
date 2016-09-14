@@ -122,6 +122,26 @@ _rmExt() {
     fi;
 };
 
+# If the name of the requested file does not begin with '/',
+#   guess the path of the target file.
+_setSrc() {
+
+    [ "$(printf '%c' "${SRC}")" = "/" ] && return 0;
+
+    # `adb-pull sdcard` > `adb-pull /sdcard/`
+    if [ "${SRC}" = "sdcard" ]; then
+        SRC="/sdcard/";
+
+    # `adb-pull Downloads` > `adb-pull /sdcard/Downloads`
+    elif [ "${SRC}" = "${BASE}" ]; then
+        SRC="/sdcard/${SRC}";
+
+    # `adb-pull sdcard/Downloads` > `adb-pull /sdcard/Downloads`
+    else
+        SRC="/${SRC}";
+    fi;
+};
+
 # Back up a file if it exists.
 _bak() {
     local file="${1}";
@@ -299,23 +319,7 @@ declare SRC="${1}";
 declare BASE;
 BASE="$(basename "${SRC}")";
 
-# If the name of the requested file does not begin with '/',
-#   guess the path of the target file.
-if [ "$(printf '%c' "${SRC}")" != "/" ]; then 
-
-    # `adb-pull sdcard` > `adb-pull /sdcard/`
-    if [ "${SRC}" = "sdcard" ]; then
-        SRC="/sdcard/";
-
-    # `adb-pull Downloads` > `adb-pull /sdcard/Downloads`
-    elif [ "${SRC}" = "${BASE}" ]; then
-        SRC="/sdcard/${SRC}";
-
-    # `adb-pull sdcard/Downloads` > `adb-pull /sdcard/Downloads`
-    else
-        SRC="/${SRC}";
-    fi;
-fi;
+_setSrc;
 
 declare DST="${BASE}";
 
