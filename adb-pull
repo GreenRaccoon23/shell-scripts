@@ -196,10 +196,10 @@ _tarSrc() {
     echo "Creating tar archive of '${BASE}'...";
 
     echo "  adb shell 'f=\"${PARENT_DIR}/${BASE_TAR}\"; [ -e \"\${f}\" ] && rm \"\${f}\"'";
-    adb shell "f=\"${PARENT_DIR}/${BASE_TAR}\"; [ -e \"\${f}\" ] && rm \"\${f}\"";
+    adb shell "f=\"${PARENT_DIR}/${BASE_TAR}\"; [ -e \"\${f}\" ] && rm \"\${f}\"" || return $?;
 
     echo "  adb shell 'cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\"'";
-    adb shell "cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\"";
+    adb shell "cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\"" || return $?;
 
     local valid;
     echo "Verifying '${BASE_TAR}'...";
