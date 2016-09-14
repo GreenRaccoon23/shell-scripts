@@ -1,6 +1,8 @@
 #!/bin/bash
 shopt -s extglob
 
+declare -r PULL="adb-pull";
+
 # Print help and exit.
 _help() {
     local path="$0";
@@ -24,7 +26,7 @@ OPTIONS:
 DEFAULT:
   ${script} -r ${SRC} ${DST}
 NOTE:
-  Requires that the Bash script "adb-pull" is in the '\$PATH'.
+  Requires that the Bash script "${PULL}" is in the '\$PATH'.
   (E.g., place "${script}" in "${HOME}/bin/" and 
     add 'export PATH=\$PATH:\$HOME/bin' to '~/.bashrc'.)
 EOH
@@ -344,7 +346,7 @@ _getSizeDone() {
 #         _c green "echo -n ==\> Pull ${d}?";
 #         ( 
 #             _Yn 3 &&
-#                 adb-pull "${SRC}/${d}";
+#                 "${PULL}" "${SRC}/${d}";
 #         ) || (
 #             echo "${d}" | tee -a "${TMP_FILE_DIRS}";
 #             INCOMPLETE+=("${d}");
@@ -412,7 +414,7 @@ _pull() {
         return $remove;
     fi;
 
-    adb-pull "${SRC}/${d}";
+    "${PULL}" "${SRC}/${d}";
     return $?;
 };
 
