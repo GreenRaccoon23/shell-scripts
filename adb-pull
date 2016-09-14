@@ -148,7 +148,7 @@ _main() {
 
     # Compare the md5sum of the pulled file with that of the original one.
     # If they do not match, remove the pulled file and rerun this script.
-    _verify;
+    _verifyChecksums;
     if (($? != 0)); then 
         _retry "${SRC} transferred incorrectly." "  Re-pulling \"${SRC}\"...";
         return $?;
@@ -239,7 +239,7 @@ _retry() {
 };
 
 # Verify whether the md5sum of the pulled file matches that of the original.
-_verify() {
+_verifyChecksums() {
     [ -e "${DST}" ] ||
         return 1;
     echo "Verifying md5sum checksums...";
