@@ -152,7 +152,7 @@ _main() {
     _connect;
 
     # If the target file does not exist on the Android device, quit.
-    if ! _exists; then
+    if ! _srcExists; then
         _c red "echo \"${SRC}\" does not exist.";
         return 1;
     fi;
@@ -209,7 +209,7 @@ _connect() {
 };
 
 # Verify whether the remote file exists.
-_exists() {
+_srcExists() {
     local exists;
     exists="$(adb shell "if [ -e \"${SRC}\" ]; then printf 0; fi")";
     [ "${exists}" = 0 ] &&
