@@ -136,12 +136,12 @@ _bak() {
 # Create a tar archive of the file to pull [if it is a directory].
 _tar() {
     echo "Creating tar archive of '${BASE}'...";
-    echo " " adb shell \'"cd \"${PARENT_DIR}\" && tar -cf \"${BASE}.tar\" \"${BASE}\""\';
-    adb shell "cd \"${PARENT_DIR}\" && tar -cf \"${BASE}.tar\" \"${BASE}\"";
+    echo " " adb shell \'"cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\""\';
+    adb shell "cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\"";
 
     local valid;
-    echo "Verifying '${BASE}.tar'...";
-    valid="$(adb shell "v=\"$(tar -xOf \"${FILE}.tar\" &>/dev/null)\"; printf \$?;")";
+    echo "Verifying '${BASE_TAR}'...";
+    valid="$(adb shell "v=\"$(tar -xOf \"${FILE_TAR}\" &>/dev/null)\"; printf \$?;")";
     if [ "${valid}" != 0 ]; then
         _tar;
     fi;
@@ -151,13 +151,13 @@ _tar() {
 _untar() {
     _bak "${BASE}";
     
-    echo "Removing temporary tar archive '${FILE}...";
-    echo "  adb shell rm ${FILE}";
-    adb shell "rm \"${FILE}\"";
+    echo "Removing temporary tar archive '${FILE_TAR}...";
+    echo "  adb shell rm \"${FILE_TAR}\"";
+    adb shell "rm \"${FILE_TAR}\"";
 
-    echo "  tar -xf ${COPY}";
-    tar -xf "${COPY}" &&
-        rm "${COPY}"; 
+    echo "  tar -xf \"${COPY_TAR}\"";
+    tar -xf "${COPY_TAR}" &&
+        rm "${COPY_TAR}"; 
 };
 
 # Wait for Android device to connect.
@@ -184,7 +184,7 @@ _exists() {
 # Run `adb pull` to copy the file from the Android device.
 _pull() {
     _bak "${COPY}";
-    echo " " adb pull -p -a "${FILE}" "${COPY}";
+    echo "  adb pull -p -a \"${FILE}\" \"${COPY}\"";
     adb pull -p -a "${FILE}" "${COPY}";
 };
 
@@ -243,8 +243,10 @@ _main() {
     #   in order to check its md5sum later.
     if [ "${DO_TAR}" ]; then
         _tar &&
-            FILE="${FILE}.tar" &&
-            COPY="${COPY}.tar";
+            # FILE="${FILE}.tar" &&
+            # COPY="${COPY}.tar";
+            FILE="${FILE_TAR}" &&
+            COPY="${COPY_TAR}";
     fi;
 
     # Run `adb pull`.
@@ -267,8 +269,10 @@ _main() {
     #   and untar the pulled one.
     if [ "${DO_TAR}" ]; then
         _untar &&
-            FILE="$(_rmExt "${FILE}" "tar")" &&
-            COPY="$(_rmExt "${COPY}" "tar")";
+            # FILE="$(_rmExt "${FILE}" "tar")" &&
+            # COPY="$(_rmExt "${COPY}" "tar")";
+            FILE="${FILE_ORIG}" &&
+            COPY="${COPY_ORIG}";
     fi;
 
     echo "Successfully pulled \"${FILE}\".";
@@ -277,6 +281,8 @@ _main() {
     #   the name of the new/pulled file.
     echo "${COPY}";
 };
+
+declare -r TAR_EXT='.tar';
 
 # Check if user requested help.
 _getopts "$@";
@@ -289,7 +295,6 @@ declare FILE="${1}";
 # Give the pulled/local file the basename of the file on the Android device.
 declare BASE;
 BASE="$(basename "${FILE}")";
-declare COPY="${BASE}";
 
 # If the name of the requested file does not begin with '/',
 #   guess the path of the target file.
@@ -308,6 +313,16 @@ if [ "$(printf '%c' "${FILE}")" != "/" ]; then
         FILE="/${FILE}";
     fi;
 fi;
+
+declare COPY="${BASE}";
+
+declare -r FILE_ORIG="${FILE}";
+# declare -r BASE_ORIG="${BASE}";
+declare -r COPY_ORIG="${COPY}";
+
+declare BASE_TAR="${BASE}${TAR_EXT}";
+declare FILE_TAR="${FILE}${TAR_EXT}";
+declare COPY_TAR="${COPY}${TAR_EXT}";
 
 # If the target file is a directory,
 #   prepare to tar it in order to read an md5sum later.
