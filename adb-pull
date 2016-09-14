@@ -250,7 +250,7 @@ _retry() {
 _verifyChecksums() {
     [ -e "${DST}" ] ||
         return 1;
-    echo "Verifying md5sum checksums...";
+    echo "Verifying MD5 checksums...";
 
     local md5Src;
     md5Src="$(adb shell "md5sum \"${SRC}\"")";
