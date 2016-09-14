@@ -142,108 +142,6 @@ _setSrc() {
     fi;
 };
 
-# Back up a file if it exists.
-_bak() {
-    local file="${1}";
-    if [ ! -e "${file}" ] || [ -e "${file}.bak" ]; then
-        return 0;
-    fi;
-
-    echo " " mv "${file}" "${file}.bak";
-    mv "${file}" "${file}.bak";
-};
-
-# Create a tar archive of the file to pull [if it is a directory].
-_tar() {
-    echo "Creating tar archive of '${BASE}'...";
-    echo " " adb shell \'"cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\""\';
-    adb shell "cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\"";
-
-    local valid;
-    echo "Verifying '${BASE_TAR}'...";
-    valid="$(adb shell "v=\"$(tar -xOf \"${SRC_TAR}\" &>/dev/null)\"; printf \$?;")";
-    if [ "${valid}" != 0 ]; then
-        _tar;
-    fi;
-};
-
-# Extract the pulled tar archive.
-_untar() {
-    _bak "${BASE}";
-    
-    echo "Removing temporary tar archive '${SRC_TAR}...";
-    echo "  adb shell rm \"${SRC_TAR}\"";
-    adb shell "rm \"${SRC_TAR}\"";
-
-    echo "  tar -xf \"${DST_TAR}\"";
-    tar -xf "${DST_TAR}" &&
-        rm "${DST_TAR}"; 
-};
-
-# Wait for Android device to connect.
-_connect() {
-    local connected;
-    connected="$(adb devices | head -2 | tail -1)";
-    [ "${connected}" ] &&
-        return 0;
-
-    echo "Waiting for Android device to connect...";
-    adb wait-for-device &&
-        echo "  Android device connected.";
-};
-
-# Verify whether the remote file exists.
-_exists() {
-    local exists;
-    exists="$(adb shell "if [ -e \"${SRC}\" ]; then printf 0; fi")";
-    [ "${exists}" = 0 ] &&
-        return 0;
-    return 1;
-};
-
-# Run `adb pull` to copy the file from the Android device.
-_pull() {
-    _bak "${DST}";
-    echo "  adb pull -p -a \"${SRC}\" \"${DST}\"";
-    adb pull -p -a "${SRC}" "${DST}";
-};
-
-# Verify whether the md5sum of the pulled file matches that of the original.
-_verify() {
-    [ -e "${DST}" ] ||
-        return 1;
-    echo "Verifying md5sum checksums...";
-
-    local md5File;
-    md5File="$(adb shell "md5sum \"${SRC}\"")";
-    echo "  ${md5File}";
-    md5File="${md5File%  *}";
-
-    local md5Copy;
-    md5Copy="$(md5sum "${DST}")";
-    echo "  ${md5Copy}";
-    md5Copy="${md5Copy%  *}";
-
-    [ "${md5File}" = "${md5Copy}" ] &&
-        return 0;
-    return 1;
-};
-
-# Rerun script.
-_retry() {
-    if (($# == 0)); then
-        _retry "Failed to pull \"${SRC}\". Retrying...";
-        return $?;
-    fi;
-
-    _c red;
-    echo "$@";
-    _u;
-    [ -e "${DST}" ] &&
-        rm -r "${DST}";
-    "$0" "${SRC}";
-};
-
 # Run main function.
 _main() {
     # Print in green the name of the target file in order to serve as a title.
@@ -300,6 +198,108 @@ _main() {
     # Make the final line of this script's output
     #   the name of the new/pulled file.
     echo "${DST}";
+};
+
+# Wait for Android device to connect.
+_connect() {
+    local connected;
+    connected="$(adb devices | head -2 | tail -1)";
+    [ "${connected}" ] &&
+        return 0;
+
+    echo "Waiting for Android device to connect...";
+    adb wait-for-device &&
+        echo "  Android device connected.";
+};
+
+# Verify whether the remote file exists.
+_exists() {
+    local exists;
+    exists="$(adb shell "if [ -e \"${SRC}\" ]; then printf 0; fi")";
+    [ "${exists}" = 0 ] &&
+        return 0;
+    return 1;
+};
+
+# Create a tar archive of the file to pull [if it is a directory].
+_tar() {
+    echo "Creating tar archive of '${BASE}'...";
+    echo " " adb shell \'"cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\""\';
+    adb shell "cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\"";
+
+    local valid;
+    echo "Verifying '${BASE_TAR}'...";
+    valid="$(adb shell "v=\"$(tar -xOf \"${SRC_TAR}\" &>/dev/null)\"; printf \$?;")";
+    if [ "${valid}" != 0 ]; then
+        _tar;
+    fi;
+};
+
+# Run `adb pull` to copy the file from the Android device.
+_pull() {
+    _bak "${DST}";
+    echo "  adb pull -p -a \"${SRC}\" \"${DST}\"";
+    adb pull -p -a "${SRC}" "${DST}";
+};
+
+# Back up a file if it exists.
+_bak() {
+    local file="${1}";
+    if [ ! -e "${file}" ] || [ -e "${file}.bak" ]; then
+        return 0;
+    fi;
+
+    echo " " mv "${file}" "${file}.bak";
+    mv "${file}" "${file}.bak";
+};
+
+# Rerun script.
+_retry() {
+    if (($# == 0)); then
+        _retry "Failed to pull \"${SRC}\". Retrying...";
+        return $?;
+    fi;
+
+    _c red;
+    echo "$@";
+    _u;
+    [ -e "${DST}" ] &&
+        rm -r "${DST}";
+    "$0" "${SRC}";
+};
+
+# Verify whether the md5sum of the pulled file matches that of the original.
+_verify() {
+    [ -e "${DST}" ] ||
+        return 1;
+    echo "Verifying md5sum checksums...";
+
+    local md5File;
+    md5File="$(adb shell "md5sum \"${SRC}\"")";
+    echo "  ${md5File}";
+    md5File="${md5File%  *}";
+
+    local md5Copy;
+    md5Copy="$(md5sum "${DST}")";
+    echo "  ${md5Copy}";
+    md5Copy="${md5Copy%  *}";
+
+    [ "${md5File}" = "${md5Copy}" ] &&
+        return 0;
+    return 1;
+};
+
+# Extract the pulled tar archive.
+_untar() {
+    _bak "${BASE}";
+    
+    echo "Removing temporary tar archive '${SRC_TAR}...";
+    echo "  adb shell rm \"${SRC_TAR}\"";
+    adb shell "rm \"${SRC_TAR}\"";
+
+    echo "  tar -xf \"${DST_TAR}\"";
+    tar -xf "${DST_TAR}" &&
+        rm "${DST_TAR}"; 
 };
 
 declare -r SCRIPT_PATH="$0";
