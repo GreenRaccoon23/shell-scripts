@@ -194,7 +194,11 @@ _srcExists() {
 # Create a tar archive of the file to pull [if it is a directory].
 _tarSrc() {
     echo "Creating tar archive of '${BASE}'...";
-    echo " " adb shell \'"cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\""\';
+
+    echo "  adb shell '[ -e \"${BASE_TAR}\" ] && rm \"${BASE_TAR}\"'";
+    adb shell "[ -e \"${BASE_TAR}\" ] && rm \"${BASE_TAR}\"";
+
+    echo "  adb shell 'cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\"'";
     adb shell "cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\"";
 
     local valid;
