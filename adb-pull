@@ -254,9 +254,8 @@ _verifyChecksums() {
     echo "  ${md5Dst}";
     md5Dst="${md5Dst%  *}";
 
-    [ "${md5Src}" = "${md5Dst}" ] &&
-        return 0;
-    return 1;
+    [ "${md5Src}" = "${md5Dst}" ] || return 1;
+    return 0;
 };
 
 # Extract the pulled tar archive.
