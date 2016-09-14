@@ -235,7 +235,6 @@ _main() {
 
     # If the target file does not exist on the Android device, quit.
     if ! _exists; then
-        echo here
         _c red "echo \"${FILE}\" does not exist.";
         return 1;
     fi;
