@@ -141,7 +141,7 @@ _tar() {
 
     local valid;
     echo "Verifying '${BASE_TAR}'...";
-    valid="$(adb shell "v=\"$(tar -xOf \"${FILE_TAR}\" &>/dev/null)\"; printf \$?;")";
+    valid="$(adb shell "v=\"$(tar -xOf \"${SRC_TAR}\" &>/dev/null)\"; printf \$?;")";
     if [ "${valid}" != 0 ]; then
         _tar;
     fi;
@@ -151,13 +151,13 @@ _tar() {
 _untar() {
     _bak "${BASE}";
     
-    echo "Removing temporary tar archive '${FILE_TAR}...";
-    echo "  adb shell rm \"${FILE_TAR}\"";
-    adb shell "rm \"${FILE_TAR}\"";
+    echo "Removing temporary tar archive '${SRC_TAR}...";
+    echo "  adb shell rm \"${SRC_TAR}\"";
+    adb shell "rm \"${SRC_TAR}\"";
 
-    echo "  tar -xf \"${COPY_TAR}\"";
-    tar -xf "${COPY_TAR}" &&
-        rm "${COPY_TAR}"; 
+    echo "  tar -xf \"${DST_TAR}\"";
+    tar -xf "${DST_TAR}" &&
+        rm "${DST_TAR}"; 
 };
 
 # Wait for Android device to connect.
@@ -175,7 +175,7 @@ _connect() {
 # Verify whether the remote file exists.
 _exists() {
     local exists;
-    exists="$(adb shell "if [ -e \"${FILE}\" ]; then printf 0; fi")";
+    exists="$(adb shell "if [ -e \"${SRC}\" ]; then printf 0; fi")";
     [ "${exists}" = 0 ] &&
         return 0;
     return 1;
@@ -183,24 +183,24 @@ _exists() {
 
 # Run `adb pull` to copy the file from the Android device.
 _pull() {
-    _bak "${COPY}";
-    echo "  adb pull -p -a \"${FILE}\" \"${COPY}\"";
-    adb pull -p -a "${FILE}" "${COPY}";
+    _bak "${DST}";
+    echo "  adb pull -p -a \"${SRC}\" \"${DST}\"";
+    adb pull -p -a "${SRC}" "${DST}";
 };
 
 # Verify whether the md5sum of the pulled file matches that of the original.
 _verify() {
-    [ -e "${COPY}" ] ||
+    [ -e "${DST}" ] ||
         return 1;
     echo "Verifying md5sum checksums...";
 
     local md5File;
-    md5File="$(adb shell "md5sum \"${FILE}\"")";
+    md5File="$(adb shell "md5sum \"${SRC}\"")";
     echo "  ${md5File}";
     md5File="${md5File%  *}";
 
     local md5Copy;
-    md5Copy="$(md5sum "${COPY}")";
+    md5Copy="$(md5sum "${DST}")";
     echo "  ${md5Copy}";
     md5Copy="${md5Copy%  *}";
 
@@ -212,30 +212,30 @@ _verify() {
 # Rerun script.
 _retry() {
     if (($# == 0)); then
-        _retry "Failed to pull \"${FILE}\". Retrying...";
+        _retry "Failed to pull \"${SRC}\". Retrying...";
         return $?;
     fi;
 
     _c red;
     echo "$@";
     _u;
-    [ -e "${COPY}" ] &&
-        rm -r "${COPY}";
-    "$0" "${FILE}";
+    [ -e "${DST}" ] &&
+        rm -r "${DST}";
+    "$0" "${SRC}";
 };
 
 # Run main function.
 _main() {
     # Print in green the name of the target file in order to serve as a title.
     #   (This makes the output easier to read when pulling multiple files.)
-    _c green echo "${FILE}";
+    _c green echo "${SRC}";
 
     # Wait for Android device to connect.
     _connect;
 
     # If the target file does not exist on the Android device, quit.
     if ! _exists; then
-        _c red "echo \"${FILE}\" does not exist.";
+        _c red "echo \"${SRC}\" does not exist.";
         return 1;
     fi;
 
@@ -243,16 +243,16 @@ _main() {
     #   in order to check its md5sum later.
     if [ "${DO_TAR}" ]; then
         _tar &&
-            # FILE="${FILE}.tar" &&
-            # COPY="${COPY}.tar";
-            FILE="${FILE_TAR}" &&
-            COPY="${COPY_TAR}";
+            # SRC="${SRC}.tar" &&
+            # DST="${DST}.tar";
+            SRC="${SRC_TAR}" &&
+            DST="${DST_TAR}";
     fi;
 
     # Run `adb pull`.
     _pull;
     if (($? != 0)); then 
-        _retry "Failed to pull \"${FILE}\". Retrying...";
+        _retry "Failed to pull \"${SRC}\". Retrying...";
         return $?;
     fi;
 
@@ -260,7 +260,7 @@ _main() {
     # If they do not match, remove the pulled file and rerun this script.
     _verify;
     if (($? != 0)); then 
-        _retry "${FILE} transferred incorrectly." "  Re-pulling \"${FILE}\"...";
+        _retry "${SRC} transferred incorrectly." "  Re-pulling \"${SRC}\"...";
         return $?;
     fi;
     
@@ -269,17 +269,17 @@ _main() {
     #   and untar the pulled one.
     if [ "${DO_TAR}" ]; then
         _untar &&
-            # FILE="$(_rmExt "${FILE}" "tar")" &&
-            # COPY="$(_rmExt "${COPY}" "tar")";
-            FILE="${FILE_ORIG}" &&
-            COPY="${COPY_ORIG}";
+            # SRC="$(_rmExt "${SRC}" "tar")" &&
+            # DST="$(_rmExt "${DST}" "tar")";
+            SRC="${SRC_ORIG}" &&
+            DST="${DST_ORIG}";
     fi;
 
-    echo "Successfully pulled \"${FILE}\".";
+    echo "Successfully pulled \"${SRC}\".";
 
     # Make the final line of this script's output
     #   the name of the new/pulled file.
-    echo "${COPY}";
+    echo "${DST}";
 };
 
 declare -r SCRIPT_PATH="$0";
@@ -291,50 +291,50 @@ declare -r TAR_EXT="-${SCRIPT}-tmp.tar";
 _getopts "$@";
 
 # Declare the name of the target file to be pulled.
-declare FILE="${1}";
-[ -z "${FILE}" ] &&
-    FILE="/sdcard/";
+declare SRC="${1}";
+[ -z "${SRC}" ] &&
+    SRC="/sdcard/";
 
 # Give the pulled/local file the basename of the file on the Android device.
 declare BASE;
-BASE="$(basename "${FILE}")";
+BASE="$(basename "${SRC}")";
 
 # If the name of the requested file does not begin with '/',
 #   guess the path of the target file.
-if [ "$(printf '%c' "${FILE}")" != "/" ]; then 
+if [ "$(printf '%c' "${SRC}")" != "/" ]; then 
 
     # `adb-pull sdcard` > `adb-pull /sdcard/`
-    if [ "${FILE}" = "sdcard" ]; then
-        FILE="/sdcard/";
+    if [ "${SRC}" = "sdcard" ]; then
+        SRC="/sdcard/";
 
     # `adb-pull Downloads` > `adb-pull /sdcard/Downloads`
-    elif [ "${FILE}" = "${BASE}" ]; then
-        FILE="/sdcard/${FILE}";
+    elif [ "${SRC}" = "${BASE}" ]; then
+        SRC="/sdcard/${SRC}";
 
     # `adb-pull sdcard/Downloads` > `adb-pull /sdcard/Downloads`
     else
-        FILE="/${FILE}";
+        SRC="/${SRC}";
     fi;
 fi;
 
-declare COPY="${BASE}";
+declare DST="${BASE}";
 
-declare -r FILE_ORIG="${FILE}";
+declare -r SRC_ORIG="${SRC}";
 # declare -r BASE_ORIG="${BASE}";
-declare -r COPY_ORIG="${COPY}";
+declare -r DST_ORIG="${DST}";
 
 declare BASE_TAR="${BASE}${TAR_EXT}";
-declare FILE_TAR="${FILE}${TAR_EXT}";
-declare COPY_TAR="${COPY}${TAR_EXT}";
+declare SRC_TAR="${SRC}${TAR_EXT}";
+declare DST_TAR="${DST}${TAR_EXT}";
 
 # If the target file is a directory,
 #   prepare to tar it in order to read an md5sum later.
 declare IS_DIR;
-IS_DIR="$(adb shell "if [ -d \"${FILE}\" ]; then printf 0; fi")";
+IS_DIR="$(adb shell "if [ -d \"${SRC}\" ]; then printf 0; fi")";
 if [[ "${IS_DIR}" == 0 ]] && [[ "${BASE}" != "sdcard" ]] ; then
     declare DO_TAR=0;
     declare PARENT_DIR;
-    PARENT_DIR="$(dirname "${FILE}")";
+    PARENT_DIR="$(dirname "${SRC}")";
 fi;
 
 # Start the main function.
