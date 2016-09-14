@@ -385,7 +385,7 @@ _backup() {
             INCOMPLETE+=("${d}");
         fi;
 
-        _c blue "echo Progress: ${SIZE_DONE}/${SIZE_TOTAL}KB $(_percentDone)%";
+        _c blue "echo Progress: ${SIZE_DONE} KB / ${SIZE_TOTAL} KB $(_percentDone)%";
     done;
 };
 
