@@ -323,20 +323,6 @@ _u() {
     tput sgr0;
 };
 
-# Echo each value in an array individually.
-_echecho() {
-    local message;
-    for message; do
-        echo "${message}";
-    done;
-};
-
-# Echo a command, and then evaluate it.
-_evalcho() {
-    echo "$@";
-    eval "$@";
-};
-
 # Remove an extension from a filename.
 _rmExt() {
     local file="${1}";
