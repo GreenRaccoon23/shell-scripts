@@ -47,8 +47,7 @@ _init() {
 
     # Declare the name of the target file to be pulled.
     SRC="${1}";
-    [ -z "${SRC}" ] &&
-        SRC="/sdcard/";
+    [ -z "${SRC}" ] && SRC="/sdcard/";
 
     # Give the pulled/local file the basename of the file on the Android device.
     BASE="$(basename "${SRC}")";
@@ -84,7 +83,7 @@ _getopts() {
     # Iterate over user arguments.
     local -i i;
     local flag;
-    for ((i=1;i<=$#;i++)); do
+    for ((i=1; i<=$#; i++)); do
         eval flag="\$$i";
         case "${flag}" in 
             *(-)[hH] | *(-)[hH][eE][lL][pP] )
