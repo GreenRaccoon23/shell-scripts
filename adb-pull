@@ -1,6 +1,10 @@
 #!/bin/bash
 shopt -s extglob
 
+declare -r SCRIPT_PATH="$0";
+declare -r SCRIPT="${SCRIPT_PATH##*/}";
+declare -r TAR_EXT="-${SCRIPT}-tmp.tar";
+
 # Print help and exit.
 _help() {
     local path="$0";
@@ -297,11 +301,6 @@ _untar() {
     tar -xf "${DST_TAR}" &&
         rm "${DST_TAR}"; 
 };
-
-declare -r SCRIPT_PATH="$0";
-declare -r SCRIPT="${SCRIPT_PATH##*/}";
-
-declare -r TAR_EXT="-${SCRIPT}-tmp.tar";
 
 # Check if user requested help.
 _getopts "$@";
