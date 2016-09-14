@@ -202,7 +202,7 @@ _tarSrc() {
     adb shell "cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\"" || return $?;
 
     local valid;
-    echo "Verifying '${BASE_TAR}'...";
+    echo "Checking tar integrity of '${BASE_TAR}'...";
     valid="$(adb shell "v=\"$(tar -xOf \"${SRC_TAR}\" &>/dev/null)\"; printf \$?;")";
     if [ "${valid}" != 0 ]; then
         _tarSrc;
@@ -211,6 +211,7 @@ _tarSrc() {
 
 # Run `adb pull` to copy the file from the Android device.
 _pull() {
+    echo "Pulling '"${SRC}"'...";
     _bak "${DST}";
     echo "  adb pull -p -a \"${SRC}\" \"${DST}\"";
     adb pull -p -a "${SRC}" "${DST}";
