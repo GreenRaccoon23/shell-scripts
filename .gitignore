@@ -1,4 +1,5 @@
 .adb-sdbak_dirs.tmp
+.adb-sdbak_dirs-infos.tmp
 .adb-sdbak_size-done.tmp
 .adb-sdbak_size-total.tmp
 adb-sdbak.js
