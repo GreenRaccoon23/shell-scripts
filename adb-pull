@@ -5,6 +5,22 @@ declare -r SCRIPT_PATH="$0";
 declare -r SCRIPT="${SCRIPT_PATH##*/}";
 declare -r TAR_EXT="-${SCRIPT}-tmp.tar";
 
+declare SRC;
+declare BASE;
+declare DST;
+
+declare SRC_ORIG;
+# declare BASE_ORIG;
+declare DST_ORIG;
+
+declare BASE_TAR;
+declare SRC_TAR;
+declare DST_TAR;
+
+declare IS_DIR;
+declare DO_TAR;
+declare PARENT_DIR;
+
 # Print help and exit.
 _help() {
     local path="$0";
@@ -22,6 +38,40 @@ EOH
         status=0;
     fi;
     exit "${status}";
+};
+
+_init() {
+
+    # Check if user requested help.
+    _getopts "$@";
+
+    # Declare the name of the target file to be pulled.
+    SRC="${1}";
+    [ -z "${SRC}" ] &&
+        SRC="/sdcard/";
+
+    # Give the pulled/local file the basename of the file on the Android device.
+    BASE="$(basename "${SRC}")";
+
+    _setSrc;
+
+    DST="${BASE}";
+
+    SRC_ORIG="${SRC}";
+    # BASE_ORIG="${BASE}";
+    DST_ORIG="${DST}";
+
+    BASE_TAR="${BASE}${TAR_EXT}";
+    SRC_TAR="${SRC}${TAR_EXT}";
+    DST_TAR="${DST}${TAR_EXT}";
+
+    # If the target file is a directory,
+    #   prepare to tar it in order to read an md5sum later.
+    IS_DIR="$(adb shell "if [ -d \"${SRC}\" ]; then printf 0; fi")";
+    if [[ "${IS_DIR}" == 0 ]] && [[ "${BASE}" != "sdcard" ]] ; then
+        DO_TAR=0;
+        PARENT_DIR="$(dirname "${SRC}")";
+    fi;
 };
 
 # Analyze user arguments.
@@ -302,39 +352,7 @@ _untar() {
         rm "${DST_TAR}"; 
 };
 
-# Check if user requested help.
-_getopts "$@";
-
-# Declare the name of the target file to be pulled.
-declare SRC="${1}";
-[ -z "${SRC}" ] &&
-    SRC="/sdcard/";
-
-# Give the pulled/local file the basename of the file on the Android device.
-declare BASE;
-BASE="$(basename "${SRC}")";
-
-_setSrc;
-
-declare DST="${BASE}";
-
-declare -r SRC_ORIG="${SRC}";
-# declare -r BASE_ORIG="${BASE}";
-declare -r DST_ORIG="${DST}";
-
-declare BASE_TAR="${BASE}${TAR_EXT}";
-declare SRC_TAR="${SRC}${TAR_EXT}";
-declare DST_TAR="${DST}${TAR_EXT}";
-
-# If the target file is a directory,
-#   prepare to tar it in order to read an md5sum later.
-declare IS_DIR;
-IS_DIR="$(adb shell "if [ -d \"${SRC}\" ]; then printf 0; fi")";
-if [[ "${IS_DIR}" == 0 ]] && [[ "${BASE}" != "sdcard" ]] ; then
-    declare DO_TAR=0;
-    declare PARENT_DIR;
-    PARENT_DIR="$(dirname "${SRC}")";
-fi;
+_init "$@";
 
 # Start the main function.
 _main;
