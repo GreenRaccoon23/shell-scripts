@@ -195,8 +195,8 @@ _srcExists() {
 _tarSrc() {
     echo "Creating tar archive of '${BASE}'...";
 
-    echo "  adb shell '[ -e \"${BASE_TAR}\" ] && rm \"${BASE_TAR}\"'";
-    adb shell "[ -e \"${BASE_TAR}\" ] && rm \"${BASE_TAR}\"";
+    echo "  adb shell 'f=\"${PARENT_DIR}/${BASE_TAR}\"; [ -e \"\${f}\" ] && rm \"\${f}\"'";
+    adb shell "f=\"${PARENT_DIR}/${BASE_TAR}\"; [ -e \"\${f}\" ] && rm \"\${f}\"";
 
     echo "  adb shell 'cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\"'";
     adb shell "cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\"";
