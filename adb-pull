@@ -282,7 +282,10 @@ _main() {
     echo "${COPY}";
 };
 
-declare -r TAR_EXT='.tar';
+declare -r SCRIPT_PATH="$0";
+declare -r SCRIPT="${SCRIPT_PATH##*/}";
+
+declare -r TAR_EXT="-${SCRIPT}-tmp.tar";
 
 # Check if user requested help.
 _getopts "$@";
