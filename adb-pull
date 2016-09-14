@@ -134,7 +134,7 @@ _main() {
     # Tar the target file if it is a directory
     #   in order to check its md5sum later.
     if [ "${DO_TAR}" ]; then
-        _tar &&
+        _tarSrc &&
             SRC="${SRC_TAR}" &&
             DST="${DST_TAR}";
     fi;
@@ -158,7 +158,7 @@ _main() {
     #   remove the temporary tar file on the Android device
     #   and untar the pulled one.
     if [ "${DO_TAR}" ]; then
-        _untar &&
+        _untarSrcDst &&
             SRC="${SRC_ORIG}" &&
             DST="${DST_ORIG}";
     fi;
@@ -192,7 +192,7 @@ _srcExists() {
 };
 
 # Create a tar archive of the file to pull [if it is a directory].
-_tar() {
+_tarSrc() {
     echo "Creating tar archive of '${BASE}'...";
     echo " " adb shell \'"cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\""\';
     adb shell "cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\"";
@@ -201,7 +201,7 @@ _tar() {
     echo "Verifying '${BASE_TAR}'...";
     valid="$(adb shell "v=\"$(tar -xOf \"${SRC_TAR}\" &>/dev/null)\"; printf \$?;")";
     if [ "${valid}" != 0 ]; then
-        _tar;
+        _tarSrc;
     fi;
 };
 
@@ -260,7 +260,7 @@ _verify() {
 };
 
 # Extract the pulled tar archive.
-_untar() {
+_untarSrcDst() {
     _bak "${BASE}";
     
     echo "Removing temporary tar archive '${SRC_TAR}...";
