@@ -67,7 +67,7 @@ _init() {
     # If the target file is a directory,
     #   prepare to tar it in order to read an md5sum later.
     IS_DIR="$(adb shell "if [ -d \"${SRC}\" ]; then printf 1; fi")";
-    if [[ "${IS_DIR}" == 1 ]] && [[ "${BASE}" != "sdcard" ]] ; then
+    if [ "${IS_DIR}" = 1 ] && [ "${BASE}" != "sdcard" ] ; then
         DO_TAR=1;
         PARENT_DIR="$(dirname "${SRC}")";
     fi;
