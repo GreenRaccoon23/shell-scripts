@@ -33,11 +33,11 @@ USAGE:
   ${script} "<files/directories>..."
 EOH
 
-    local status="${1}";
-    if ! [ "${status}" ]; then
-        status=0;
+    local statusCode="${1}";
+    if ! [ "${statusCode}" ]; then
+        statusCode=0;
     fi;
-    exit "${status}";
+    exit "${statusCode}";
 };
 
 _init() {
