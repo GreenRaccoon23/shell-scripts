@@ -225,6 +225,7 @@ _bak() {
 
 # Rerun script.
 _retry() {
+
     if (($# == 0)); then
         _retry "Failed to pull \"${SRC}\". Retrying...";
         return $?;
@@ -233,8 +234,10 @@ _retry() {
     _c red;
     echo "$@";
     _u;
+
     [ -e "${DST}" ] &&
         rm -r "${DST}";
+
     "$0" "${SRC}";
 };
 
