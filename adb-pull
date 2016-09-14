@@ -263,10 +263,11 @@ _verify() {
 _untarSrcDst() {
     _bak "${BASE}";
     
-    echo "Removing temporary tar archive '${SRC_TAR}...";
+    echo "Removing local temporary tar archive '${SRC_TAR}...";
     echo "  adb shell rm \"${SRC_TAR}\"";
     adb shell "rm \"${SRC_TAR}\"";
 
+    echo "Removing remote temporary tar archive '${DST_TAR}...";
     echo "  tar -xf \"${DST_TAR}\"";
     tar -xf "${DST_TAR}" &&
         rm "${DST_TAR}"; 
