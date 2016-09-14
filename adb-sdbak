@@ -73,8 +73,8 @@ _getopts() {
     # Set bool options.
     DO_FORCE="${Bools[1]}";
     if [ -n "${DO_FORCE}" ]; then
-        gvfs-trash "${TMP_FILE_DIRS}";
-        gvfs-trash "${TMP_FILE_INFOS}";
+        [ -e "${TMP_FILE_DIRS}" ] && gvfs-trash "${TMP_FILE_DIRS}";
+        [ -e "${TMP_FILE_INFOS}" ] && gvfs-trash "${TMP_FILE_INFOS}";
     fi;
 
     # Set string options.
