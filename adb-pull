@@ -161,8 +161,6 @@ _main() {
     #   in order to check its md5sum later.
     if [ "${DO_TAR}" ]; then
         _tar &&
-            # SRC="${SRC}.tar" &&
-            # DST="${DST}.tar";
             SRC="${SRC_TAR}" &&
             DST="${DST_TAR}";
     fi;
@@ -187,8 +185,6 @@ _main() {
     #   and untar the pulled one.
     if [ "${DO_TAR}" ]; then
         _untar &&
-            # SRC="$(_rmExt "${SRC}" "tar")" &&
-            # DST="$(_rmExt "${DST}" "tar")";
             SRC="${SRC_ORIG}" &&
             DST="${DST_ORIG}";
     fi;
