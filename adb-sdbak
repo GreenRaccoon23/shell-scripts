@@ -224,19 +224,6 @@ _fmtDir() {
     fi;
 };
 
-# Store the target directories into an array
-# and save them in a temporary file.
-# _getDirs() {
-#     if [ ! -e "${TMP_FILE_DIRS}" ]; then
-#         _setDirs;
-#     fi;
-    
-#     IFS=$'\r\n' read -d '' -r -a DIRS < "${TMP_FILE_DIRS}";
-#     if [ -z "${DIRS[*]}" ]; then
-#         _err "Failed to get directories under ${SRC}/.";
-#     fi;
-# }
-
 _getInfos() {
     # [ -e "${TMP_FILE_INFOS}" ] && rm "${TMP_FILE_INFOS}"; #delete
     [ ! -e "${TMP_FILE_INFOS}" ] && _setInfos;
@@ -328,32 +315,6 @@ _getSizeDone() {
     [ -z "${SIZE_DONE}" ] && _err "Failed to get size done from \"${TMP_FILE_SIZE_DONE}\"";
     return 0;
 };
-
-# Pull each file from the device.
-# _backup() {
-#     local d;
-#     local isFirst=0;
-
-#     for d in "${DIRS[@]}"; do
-#         [ -z "${d}" ] && continue;
-
-#         if [ "${isFirst}" = 0 ]; then
-#             isFirst=1;
-#         else
-#             echo;
-#         fi;
-
-#         _c green "echo -n ==\> Pull ${d}?";
-#         ( 
-#             _Yn 3 &&
-#                 "${PULL}" "${SRC}/${d}";
-#         ) || (
-#             echo "${d}" | tee -a "${TMP_FILE_DIRS}";
-#             INCOMPLETE+=("${d}");
-#         )
-#         sed -i -e '1d' "${TMP_FILE_DIRS}";
-#     done;
-# }
 
 # Pull each file from the device.
 _backup() {
@@ -508,9 +469,7 @@ _getopts "$@";
 
 _connect || exit $?;
 
-declare -a DIRS; #deprecate
 declare -a INFOS;
-# _getDirs || exit $?;
 _getInfos || exit $?;
 
 declare SIZE_TOTAL=0;
