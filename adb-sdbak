@@ -3,6 +3,31 @@ shopt -s extglob
 
 declare -r PULL="adb-pull";
 
+declare -r SCRIPT_PATH="$0";
+declare -r SCRIPT="${SCRIPT_PATH##*/}";
+
+declare -r SCRIPT_DIR="$(dirname "$0")";
+
+declare -r TMP_FILE_DIRS="${SCRIPT_DIR}/.${SCRIPT}_dirs.tmp";
+declare -r TMP_FILE_INFOS="${SCRIPT_DIR}/.${SCRIPT}_dirs-infos.tmp";
+declare -r TMP_FILE_SIZE_TOTAL="${SCRIPT_DIR}/.${SCRIPT}_size-total.tmp";
+declare -r TMP_FILE_SIZE_DONE="${SCRIPT_DIR}/.${SCRIPT}_size-done.tmp";
+declare -r INFO_SEPARATOR=":/NULSEPARATOR/:";
+
+# Set bool options.
+declare DO_FORCE;
+
+# Set string options.
+declare SRC;
+declare DST;
+SRC="/sdcard";
+DST="${HOME}/tmp/$(basename ${SRC})_$(date +%Y-%m-%d)";
+
+declare -a INFOS;
+declare SIZE_TOTAL=0;
+declare SIZE_DONE=0;
+declare -a INCOMPLETE;
+
 # Print help and exit.
 _help() {
     local path="$0";
@@ -222,6 +247,30 @@ _fmtDir() {
     else
         echo "${d}";
     fi;
+};
+
+_init() {
+
+    _getopts "$@";
+
+    _connect || exit $?;
+};
+
+_main() {
+
+    _getInfos || exit $?;
+
+    _getSizeTotal || exit $?;
+
+    _getSizeDone || exit $?;
+
+    _q pushd "${DST}";
+    _backup;
+    _q popd;
+
+    _cleanUp;
+
+    echo "${DST}";
 };
 
 _getInfos() {
@@ -446,43 +495,5 @@ _cleanUp() {
     _Yn 10 || gvfs-trash "${TMP_FILE_INFOS}";
 };
 
-declare -r SCRIPT_PATH="$0";
-declare -r SCRIPT="${SCRIPT_PATH##*/}";
-
-declare -r SCRIPT_DIR="$(dirname "$0")";
-declare -r TMP_FILE_DIRS="${SCRIPT_DIR}/.${SCRIPT}_dirs.tmp";
-declare -r TMP_FILE_INFOS="${SCRIPT_DIR}/.${SCRIPT}_dirs-infos.tmp";
-declare -r TMP_FILE_SIZE_TOTAL="${SCRIPT_DIR}/.${SCRIPT}_size-total.tmp";
-declare -r TMP_FILE_SIZE_DONE="${SCRIPT_DIR}/.${SCRIPT}_size-done.tmp";
-declare -r INFO_SEPARATOR=":/NULSEPARATOR/:";
-
-# Set bool options.
-declare DO_FORCE;
-
-# Set string options.
-declare SRC;
-declare DST;
-SRC="/sdcard";
-DST="${HOME}/tmp/$(basename ${SRC})_$(date +%Y-%m-%d)";
-
-_getopts "$@";
-
-_connect || exit $?;
-
-declare -a INFOS;
-_getInfos || exit $?;
-
-declare SIZE_TOTAL=0;
-_getSizeTotal || exit $?;
-
-declare SIZE_DONE=0;
-_getSizeDone || exit $?;
-
-declare -a INCOMPLETE;
-_q pushd "${DST}";
-_backup;
-_q popd;
-
-_cleanUp;
-
-echo "${DST}";
+_init "$@";
+_main || exit $?;
