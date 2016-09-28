@@ -8,11 +8,13 @@ declare -r SCRIPT="${SCRIPT_PATH##*/}";
 
 declare -r SCRIPT_DIR="$(dirname "$0")";
 
+declare -r TMP_DB="${SCRIPT_DIR}/.${SCRIPT}.tmp.db"; #new
+
 declare -r TMP_FILE_DIRS="${SCRIPT_DIR}/.${SCRIPT}_dirs.tmp";
-declare -r TMP_FILE_INFOS="${SCRIPT_DIR}/.${SCRIPT}_dirs-infos.tmp";
-declare -r TMP_FILE_SIZE_TOTAL="${SCRIPT_DIR}/.${SCRIPT}_size-total.tmp";
-declare -r TMP_FILE_SIZE_DONE="${SCRIPT_DIR}/.${SCRIPT}_size-done.tmp";
-declare -r INFO_SEPARATOR=":/NULSEPARATOR/:";
+# declare -r TMP_FILE_INFOS="${SCRIPT_DIR}/.${SCRIPT}_dirs-infos.tmp";
+# declare -r TMP_FILE_SIZE_TOTAL="${SCRIPT_DIR}/.${SCRIPT}_size-total.tmp";
+# declare -r TMP_FILE_SIZE_DONE="${SCRIPT_DIR}/.${SCRIPT}_size-done.tmp";
+# declare -r INFO_SEPARATOR=":/NULSEPARATOR/:";
 
 # Set bool options.
 declare DO_FORCE;
@@ -23,23 +25,23 @@ declare DST;
 SRC="/sdcard";
 DST="${HOME}/tmp/$(basename ${SRC})_$(date +%Y-%m-%d)";
 
-declare -a INFOS;
+declare -a DIRS; #new
+# declare -a INFOS;
 declare SIZE_TOTAL=0;
 declare SIZE_DONE=0;
-declare -a INCOMPLETE;
+# declare -a INCOMPLETE;
 
 # Print help and exit.
 _help() {
-    local path="$0";
-    local script=${path##*/};
-    local fmt="$(date +%Y-%m-%d)";
     local bin="${HOME}/bin"
+    local fmt;
+    fmt="$(date +%Y-%m-%d)";
     cat << EOH >&2
-${script}
+${SCRIPT}
 DESCRIPTION:
   Pull an Android devices ${SRC} contents to ${DST}.
 USAGE:
-  ${script} [OPTIONS] [<remote-file-to-pull>] [<local-directory-to-save>]
+  ${SCRIPT} [OPTIONS] [<remote-file-to-pull>] [<local-directory-to-save>]
 OPTIONS:
   r, resume, c, continue [default]
     Resume a backup operation if one did not complete earlier.
@@ -49,10 +51,10 @@ OPTIONS:
     Force redo a a full backup, even if a previous one did not complete.
     CAUTION: Any existing files will be overwritten.
 DEFAULT:
-  ${script} -r ${SRC} ${DST}
+  ${SCRIPT} -r ${SRC} ${DST}
 NOTE:
   Requires that the Bash script "${PULL}" is in the '\$PATH'.
-  (E.g., place "${script}" in "${HOME}/bin/" and 
+  (E.g., place "${SCRIPT}" in "${HOME}/bin/" and 
     add 'export PATH=\$PATH:\$HOME/bin' to '~/.bashrc'.)
 EOH
 
@@ -70,7 +72,7 @@ _getopts() {
     # Iterate over user arguments.
     local -i i;
     local flag;
-    for ((i=1;i<=$#;i++)); do
+    for ((i=1; i<=$#; i++)); do
         eval flag="\$$i";
         case "${flag}" in 
             *(-)[hH]*([eE][lL][pP]) )
@@ -100,6 +102,7 @@ _getopts() {
     # Set bool options.
     DO_FORCE="${Bools[1]}";
     if [ -n "${DO_FORCE}" ]; then
+        [ -e "${TMP_DB}" ] && gvfs-trash "${TMP_DB}"; #new
         [ -e "${TMP_FILE_DIRS}" ] && gvfs-trash "${TMP_FILE_DIRS}";
         [ -e "${TMP_FILE_INFOS}" ] && gvfs-trash "${TMP_FILE_INFOS}";
         [ -e "${TMP_FILE_SIZE_TOTAL}" ] && gvfs-trash "${TMP_FILE_SIZE_TOTAL}";
@@ -178,7 +181,7 @@ _err() {
         err="An error occurred. Cannot continue.";
 
     _c red;
-    echo "${err}";
+    echo -e "${err}";
     _u;
     exit 1;
 };
@@ -249,22 +252,285 @@ _fmtDir() {
     fi;
 };
 
+#
+# deprecate
+# 
+# _init() {
+
+#     _getopts "$@";
+
+#     _connect || exit $?;
+# };
+
+# _main() {
+
+#     _getInfos || exit $?;
+
+#     _getSizeTotal || exit $?;
+
+#     _getSizeDone || exit $?;
+
+#     _q pushd "${DST}";
+#     _backup;
+#     _q popd;
+
+#     _cleanUp;
+
+#     echo "${DST}";
+# };
+
+# _getInfos() {
+#     # [ -e "${TMP_FILE_INFOS}" ] && rm "${TMP_FILE_INFOS}"; #delete
+#     [ ! -e "${TMP_FILE_INFOS}" ] && _setInfos;
+
+#     IFS=$'\r\n' read -d '' -r -a INFOS < "${TMP_FILE_INFOS}";
+#     [ -z "${INFOS[*]}" ] && _err "Failed to get directories and size info under ${SRC}/.";
+#     return 0;
+# };
+
+# _setInfos() {
+#     _setDirs;
+#     [ ! -e "${TMP_FILE_DIRS}" ] && _err "TMP_FILE_DIRS \"${TMP_FILE_DIRS}\" does not exist";
+
+#     [ -e "${TMP_FILE_INFOS}" ] && gvfs-trash "${TMP_FILE_INFOS}";
+#     [ -e "${TMP_FILE_SIZE_TOTAL}" ] && gvfs-trash "${TMP_FILE_SIZE_TOTAL}";
+#     [ -e "${TMP_FILE_SIZE_DONE}" ] && gvfs-trash "${TMP_FILE_SIZE_DONE}";
+
+#     local dirs;
+#     IFS=$'\r\n' read -d '' -r -a dirs < "${TMP_FILE_DIRS}";
+
+#     local d;
+#     local -i size;
+#     local -i total=0;
+
+#     _c green "echo Getting dir sizes...";
+
+#     for d in "${dirs[@]}"; do
+#         # _adbDirSize "${d}"; continue; #delete
+#         size="$(_adbDirSize "${d}")";
+#         if [ -z "${size}" ]; then
+#             _c yellow "echo Failed to get size of \"${d}\"";
+#             size=0;
+#         fi;
+
+#         total=$((total + size));
+#         echo "${d}${INFO_SEPARATOR}${size}" >> "${TMP_FILE_INFOS}";
+#     done;
+#     # exit; #delete
+
+#     [ -z "${total}" ] && _err "Total size should be greater than 0. total: $total";
+
+#     echo $total > "${TMP_FILE_SIZE_TOTAL}";
+#     echo "0" > "${TMP_FILE_SIZE_DONE}";
+# };
+
+# # Store the target directories into an array
+# # and save them in a temporary file.
+# _setDirs() {
+#     [ -e "${TMP_FILE_DIRS}" ] && gvfs-trash "${TMP_FILE_DIRS}";
+
+#     _c green "echo Getting dirs...";
+#     echo " " adb shell \"su -c /su/xbin/ls --color=never -A1 ${SRC}/\" '>' \"${TMP_FILE_DIRS}\";
+#     adb shell "su -c /su/xbin/ls --color=never -A1 ${SRC}/" > "${TMP_FILE_DIRS}";
+# };
+
+# _adbDirSize() {
+#     local path="/sdcard/${1}";
+
+#     local info;
+#     local statuss;
+#     local size;
+#     local tab;
+
+#     info="$(adb shell "du -ack \"${path}\"; printf $?")";
+
+#     statuss="$(echo "${info}" | tail -n 1)";
+#     if [ "${statuss}" != "0" ]; then
+#         echo "0";
+#         return;
+#     fi;
+
+#     info="$(echo "${info}" | tail -n 2 | head -n 1)";
+
+#     size="${info%% *}";
+#     tab="$(echo -e "\t")";
+#     size="${size%%$tab*}";
+
+#     echo "${size}";
+# };
+
+# _getSizeTotal() {
+#     SIZE_TOTAL="$(cat "${TMP_FILE_SIZE_TOTAL}")";
+#     [ -z "${SIZE_TOTAL}" ] && _err "Failed to get size total from \"${TMP_FILE_SIZE_TOTAL}\"";
+#     return 0;
+# };
+
+# _getSizeDone() {
+#     SIZE_DONE="$(cat "${TMP_FILE_SIZE_DONE}")";
+#     [ -z "${SIZE_DONE}" ] && _err "Failed to get size done from \"${TMP_FILE_SIZE_DONE}\"";
+#     return 0;
+# };
+
+# # Pull each file from the device.
+# _backup() {
+#     local info;
+#     local d;
+#     local size;
+
+#     echo "Starting backup";
+
+#     for info in "${INFOS[@]}"; do
+#         [ -z "${info}" ] && continue;
+
+#         d="${info%$INFO_SEPARATOR*}";
+#         size="${info#*$INFO_SEPARATOR}";
+
+#         [ "${d}${INFO_SEPARATOR}${size}" != "${info}" ] && _err "Syntax err: Failed to split dir info into 'dir' and 'size'";
+
+#         [ -z "${size}" ] && size=0;
+
+#         # echo "d: \"$d\" size: \"$size\""; #delete
+#         # SIZE_DONE=$((SIZE_DONE + size)); #delete
+#         # _percentDone;
+#         # continue; #delete
+#         # _c blue "echo Progress: ${SIZE_DONE}/${SIZE_TOTAL}KB $(_percentDone)%"; #delete
+#         # continue; #delete
+
+#         if _pull "${d}"; then
+#             _dequeue;
+#             _setSizeDone "${size}";
+#         else
+#             echo "${d}" >> "${TMP_FILE_DIRS}";
+#             echo "${info}" >> "${TMP_FILE_INFOS}";
+#             INCOMPLETE+=("${d}");
+#         fi;
+
+#         _c blue "echo Progress: ${SIZE_DONE} KB / ${SIZE_TOTAL} KB $(_percentDone)%";
+#     done;
+# };
+
+# _pull() {
+#     local d="${*}";
+#     local -i remove=1;
+
+#     _c green "echo -n ==\> Pull \\\"${d}\\\"?";
+
+#     if ! _Yn 3; then #no
+#         _c green "echo -n ==\> Remove \\\"${d}\\\" from backup list?";
+
+#         if _yN 30; then #yes
+#              #dequeue
+#             remove=0;
+#         else
+#             #requeue
+#             _dequeue;
+#             remove=1;
+#         fi;
+
+#         return $remove;
+#     fi;
+
+#     "${PULL}" "${SRC}/${d}";
+#     return $?;
+# };
+
+# _dequeue() {
+#     sed -i -e '1d' "${TMP_FILE_DIRS}";
+#     sed -i -e '1d' "${TMP_FILE_INFOS}";
+# };
+
+# _setSizeDone() {
+#     local size="${1}";
+    
+#     SIZE_DONE=$((SIZE_DONE + size));
+
+#     echo $SIZE_DONE > "${TMP_FILE_SIZE_DONE}";
+# };
+
+# _percentDone() {
+#     local decimal;
+#     local percent;
+
+#     if [ -z "${SIZE_DONE}" ]; then
+#         echo "00.00";
+#     elif [ "${SIZE_DONE}" = "${SIZE_TOTAL}" ]; then
+#         echo "100.00";
+#     else
+#         decimal=$(bc <<< "scale=4; ${SIZE_DONE}/${SIZE_TOTAL}");
+#         percent=$(bc <<< "scale=4; ${decimal}*100");
+#         # echo $percent; #delete
+
+#         # yeah, this is nonsense. good luck
+#         if [ "${percent}" = "0" ]; then
+#             echo "00.00";
+
+#         elif [ "${percent:0:1}" = "." ]; then
+#             echo "00.${percent:1:2}";
+
+#         elif [ "${percent:1:1}" = "." ]; then
+#             echo "0${percent:0:1}.${percent:2:2}";
+
+#         elif [ "${percent:2:1}" = "." ]; then
+#             echo "${percent:0:2}.${percent:3:2}";
+
+#         else
+#             echo "${percent:1:2}.${percent:3:4}";
+#         fi;
+#     fi;
+# }
+
+# # Manage temporary files and report any final errors.
+# _cleanUp() {
+#     if [ -z "$(cat "${TMP_FILE_INFOS}")" ]; then
+#         gvfs-trash "${TMP_FILE_INFOS}";
+#         gvfs-trash "${TMP_FILE_DIRS}";
+#         gvfs-trash "${TMP_FILE_SIZE_TOTAL}";
+#         gvfs-trash "${TMP_FILE_SIZE_DONE}";
+#     fi;
+#     [ -z "${INCOMPLETE[*]}" ] && return 0;
+
+#     echo;
+#     echo "Did not pull ${INCOMPLETE[*]}";
+#     _c green "echo -n ==\> Pull them now?";
+#     if _yN 10; then
+#         "$0";
+#         exit $?;
+#     fi;
+
+#     _c green "echo -n ==\> Remember to pull these files the next time this script is run?";
+#     _Yn 10 || gvfs-trash "${TMP_FILE_INFOS}";
+# };
+#
+## /deprecate
+#
+## new
+#
 _init() {
 
     _getopts "$@";
 
     _connect || exit $?;
+
+    _dbCreate;
 };
 
 _main() {
 
-    _getInfos || exit $?;
+    _dbPopulate || exit $?;
 
-    _getSizeTotal || exit $?;
+    _c green "echo Counting total size of directories...";
+    _setSizeTotal || exit $?;
 
-    _getSizeDone || exit $?;
+    _c green "echo Counting total size of any pulled directories...";
+    _setSizeDone || exit $?;
+
+    # _choose; #todo: do this?
+
+    _c green "echo Fetching list of directories to pull...";
+    _fetchDirs;
 
     _q pushd "${DST}";
+    _c green "echo Starting backup";
     _backup;
     _q popd;
 
@@ -273,175 +539,271 @@ _main() {
     echo "${DST}";
 };
 
-_getInfos() {
-    # [ -e "${TMP_FILE_INFOS}" ] && rm "${TMP_FILE_INFOS}"; #delete
-    [ ! -e "${TMP_FILE_INFOS}" ] && _setInfos;
+_dbCreate() {
 
-    IFS=$'\r\n' read -d '' -r -a INFOS < "${TMP_FILE_INFOS}";
-    [ -z "${INFOS[*]}" ] && _err "Failed to get directories and size info under ${SRC}/.";
+    [ -e "${TMP_DB}" ] && _dbTablesExist && return 0;
+
+    _c green "echo Creating database...";
+
+    local query="
+        CREATE TABLE dirs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name VARCHAR(255) NOT NULL DEFAULT '',
+            size BIGINT NOT NULL DEFAULT 0,
+            pull TINYINT NOT NULL DEFAULT 1,
+            pulled TINYINT NOT NULL DEFAULT 0,
+            skipped TINYINT NOT NULL DEFAULT 0,
+            sort MEDIUMINT NOT NULL DEFAULT 1,
+
+            UNIQUE (name) ON CONFLICT REPLACE
+        )
+    ;";
+
+    sqlite3 "${TMP_DB}" "${query}";
+    [ $? -ne 0 ] && _err "Failed to create database.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+};
+
+_dbTablesExist() {
+
+    local name;
+    local query="SELECT name FROM sqlite_master WHERE type='table' AND name='dirs' LIMIT 1;";
+
+    name="$(sqlite3 "${TMP_DB}" "${query}")";
+    [ $? -ne 0 ] && _err "Failed to check if tables exist in TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+
+    [ -z "${name}" ] && return 1;
     return 0;
 };
 
-_setInfos() {
+_dbPopulate() {
+
+    _dirsPopulated && return 0;
+
+    _retrieveDirs;
     _setDirs;
-    [ ! -e "${TMP_FILE_DIRS}" ] && _err "TMP_FILE_DIRS \"${TMP_FILE_DIRS}\" does not exist";
+    _dbInsertDirs;
 
-    [ -e "${TMP_FILE_INFOS}" ] && gvfs-trash "${TMP_FILE_INFOS}";
-    [ -e "${TMP_FILE_SIZE_TOTAL}" ] && gvfs-trash "${TMP_FILE_SIZE_TOTAL}";
-    [ -e "${TMP_FILE_SIZE_DONE}" ] && gvfs-trash "${TMP_FILE_SIZE_DONE}";
+    _retrieveAndUpdateSizes;
+};
 
-    local dirs;
-    IFS=$'\r\n' read -d '' -r -a dirs < "${TMP_FILE_DIRS}";
+_dirsPopulated() {
 
-    local d;
-    local -i size;
-    local -i total=0;
+    local count;
+    local query="SELECT COUNT(id) FROM dirs LIMIT 1;";
 
-    _c green "echo Getting dir sizes...";
+    count="$(sqlite3 "${TMP_DB}" "${query}")";
+    [ $? -ne 0 ] && _err "Failed to check if tables are populated in TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
 
-    for d in "${dirs[@]}"; do
-        # _adbDirSize "${d}"; continue; #delete
-        size="$(_adbDirSize "${d}")";
-        if [ -z "${size}" ]; then
-            _c yellow "echo Failed to get size of \"${d}\"";
-            size=0;
-        fi;
-
-        total=$((total + size));
-        echo "${d}${INFO_SEPARATOR}${size}" >> "${TMP_FILE_INFOS}";
-    done;
-    # exit; #delete
-
-    [ -z "${total}" ] && _err "Total size should be greater than 0. total: $total";
-
-    echo $total > "${TMP_FILE_SIZE_TOTAL}";
-    echo "0" > "${TMP_FILE_SIZE_DONE}";
+    [ "${count}" = "0" ] && return 1;
+    return 0;
 };
 
 # Store the target directories into an array
 # and save them in a temporary file.
-_setDirs() {
-    [ -e "${TMP_FILE_DIRS}" ] && gvfs-trash "${TMP_FILE_DIRS}";
+_retrieveDirs() {
 
-    _c green "echo Getting dirs...";
+    [ -e "${TMP_FILE_DIRS}" ] && return 0;
+
+    _c green "echo Retrieving directories...";
+
     echo " " adb shell \"su -c /su/xbin/ls --color=never -A1 ${SRC}/\" '>' \"${TMP_FILE_DIRS}\";
     adb shell "su -c /su/xbin/ls --color=never -A1 ${SRC}/" > "${TMP_FILE_DIRS}";
 };
 
+_setDirs() {
+
+    [ ! -e "${TMP_FILE_DIRS}" ] && _err "Code err! TMP_FILE_DIRS does not exist.\n  TMP_FILE_DIRS: '${TMP_FILE_DIRS}'";
+
+    IFS=$'\r\n' read -d '' -r -a DIRS < "${TMP_FILE_DIRS}";
+    [ -z "${DIRS[*]}" ] && _err "Failed to populate DIRS array from TMP_FILE_DIRS.\n  TMP_FILE_DIRS: '${TMP_FILE_DIRS}'";
+};
+
+_dbInsertDirs() {
+
+    _c green "echo Inserting directories into database...";
+
+    local name;
+    local query;
+
+    for name in "${DIRS[@]}"; do
+        query="INSERT INTO dirs (name) VALUES ('${name}');";
+        sqlite3 "${TMP_DB}" "${query}";
+        [ $? -ne 0 ] && _err "Failed to insert name into dirs table of TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  name: '${name}'\n  query: '${query}'";
+    done;
+};
+
+_retrieveAndUpdateSizes() {
+
+    [ -z "${DIRS}" ] && _err "Code err! DIRS array is empty.\n  DIRS: '${DIRS}'";
+
+    local name;
+    local -i size;
+
+    _c green "echo Retrieving directory sizes...";
+
+    for name in "${DIRS[@]}"; do
+        # _adbDirSize "${name}"; continue; #delete
+        size="$(_adbDirSize "${name}")";
+        if [ -z "${size}" ]; then
+            _c yellow "echo Failed to get size of \"${name}\"";
+            size=0;
+        fi;
+
+        _dbUpdateSize "${name}" "${size}";
+    done;
+    # exit; #delete
+};
+
 _adbDirSize() {
-    local path="/sdcard/${1}";
+
+    local name="/sdcard/${1}";
+
+    local tab;
+    tab="$(echo -e "\t")";
 
     local info;
     local statuss;
     local size;
-    local tab;
 
-    info="$(adb shell "du -ack \"${path}\"; printf $?")";
+    # info="$(adb shell "du -ack \"${name}\"; printf $?")";
+    info="$(adb shell "du -sck \"${name}\"; printf $?")";
 
-    statuss="$(echo "${info}" | tail -n 1)";
+    statuss="$(echo "${info}" | tail -n 1)"; # last line: '0'
     if [ "${statuss}" != "0" ]; then
-        echo "0";
+        echo "0"; # todo: right way to handle this?
         return;
     fi;
 
-    info="$(echo "${info}" | tail -n 2 | head -n 1)";
+    info="$(echo "${info}" | tail -n 2 | head -n 1)"; # second to last line: '12345678  total'
 
+    # trim the whitespace and letters which follow the byte total
     size="${info%% *}";
-    tab="$(echo -e "\t")";
     size="${size%%$tab*}";
 
     echo "${size}";
 };
 
-_getSizeTotal() {
-    SIZE_TOTAL="$(cat "${TMP_FILE_SIZE_TOTAL}")";
-    [ -z "${SIZE_TOTAL}" ] && _err "Failed to get size total from \"${TMP_FILE_SIZE_TOTAL}\"";
+_dbUpdateSize() {
+
+    local name="${1}";
+    local size="${2}";
+    local query="UPDATE dirs SET size = ${size} WHERE name = '${name}';";
+
+    sqlite3 "${TMP_DB}" "${query}";
+    [ $? -ne 0 ] && _err "Failed to update size in TMP_DB.\n  name: '${name}'\n  size: '${size}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+
     return 0;
 };
 
-_getSizeDone() {
-    SIZE_DONE="$(cat "${TMP_FILE_SIZE_DONE}")";
-    [ -z "${SIZE_DONE}" ] && _err "Failed to get size done from \"${TMP_FILE_SIZE_DONE}\"";
+_setSizeTotal() {
+
+    local query="SELECT SUM(size) FROM dirs;";
+
+    SIZE_TOTAL="$(sqlite3 "${TMP_DB}" "${query}")";
+    [ $? -ne 0 ] && _err "Failed to get size total from TMP_DB.\n  SIZE_TOTAL: '${SIZE_TOTAL}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+    [ -z "${SIZE_TOTAL}" ] && _err "Failed to get size total from TMP_DB.\n  SIZE_TOTAL: '${SIZE_TOTAL}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+
     return 0;
+};
+
+_setSizeDone() {
+
+    local query="SELECT SUM(size) FROM dirs WHERE pulled = 1 OR pull = 0;";
+
+    SIZE_DONE="$(sqlite3 "${TMP_DB}" "${query}")";
+    [ $? -ne 0 ] && _err "Failed to get size done from TMP_DB.\n  SIZE_DONE: '${SIZE_DONE}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+
+    [ -z "${SIZE_DONE}" ] && SIZE_DONE=0;
+
+    return 0;
+};
+
+_fetchDirs() {
+
+    local query="SELECT name FROM dirs WHERE pulled = 0 AND pull = 1 ORDER BY sort ASC;";
+
+    IFS=$'\r\n' read -d '' -r -a DIRS < <(sqlite3 "${TMP_DB}" "${query}");
+    [ -z "${DIRS[*]}" ] && _err "Failed to populate DIRS array from TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
 };
 
 # Pull each file from the device.
 _backup() {
-    local info;
-    local d;
-    local size;
-
-    echo "Starting backup";
-
-    for info in "${INFOS[@]}"; do
-        [ -z "${info}" ] && continue;
-
-        d="${info%$INFO_SEPARATOR*}";
-        size="${info#*$INFO_SEPARATOR}";
-
-        [ "${d}${INFO_SEPARATOR}${size}" != "${info}" ] && _err "Syntax err: Failed to split dir info into 'dir' and 'size'";
-
-        [ -z "${size}" ] && size=0;
-
-        # echo "d: \"$d\" size: \"$size\""; #delete
-        # SIZE_DONE=$((SIZE_DONE + size)); #delete
-        # _percentDone;
-        # continue; #delete
-        # _c blue "echo Progress: ${SIZE_DONE}/${SIZE_TOTAL}KB $(_percentDone)%"; #delete
-        # continue; #delete
-
-        if _pull "${d}"; then
-            _dequeue;
-            _setSizeDone "${size}";
-        else
-            echo "${d}" >> "${TMP_FILE_DIRS}";
-            echo "${info}" >> "${TMP_FILE_INFOS}";
-            INCOMPLETE+=("${d}");
-        fi;
-
+    local name;
+    for name in "${DIRS[@]}"; do
+        _pull "${name}";
         _c blue "echo Progress: ${SIZE_DONE} KB / ${SIZE_TOTAL} KB $(_percentDone)%";
     done;
 };
 
 _pull() {
-    local d="${*}";
-    local -i remove=1;
 
-    _c green "echo -n ==\> Pull \\\"${d}\\\"?";
+    local name="${*}";
 
-    if ! _Yn 3; then #no
-        _c green "echo -n ==\> Remove \\\"${d}\\\" from backup list?";
+    if _c green "echo -n ==\> Pull \\\"${name}\\\"?" && _Yn 3; then #yes
+        "${PULL}" "${SRC}/${name}" &&
+            _pulled "${name}" &&
+            _updateSizeDone "${name}";
 
-        if _yN 30; then #yes
-             #dequeue
-            remove=0;
-        else
-            #requeue
-            _dequeue;
-            remove=1;
-        fi;
+    elif _c green "echo -n ==\> Remove \\\"${name}\\\" from backup list?" && _yN 30; then #yes
+        _disable "${name}" &&
+            _updateSizeDone "${name}";
 
-        return $remove;
+    else
+        _skipped "${name}";
+            _updateSizeDone "${name}";
+
     fi;
 
-    "${PULL}" "${SRC}/${d}";
     return $?;
 };
 
-_dequeue() {
-    sed -i -e '1d' "${TMP_FILE_DIRS}";
-    sed -i -e '1d' "${TMP_FILE_INFOS}";
+_pulled() {
+
+    local name="${1}";
+    local query="UPDATE dirs SET pulled = 1 WHERE name = '${name}';";
+
+    sqlite3 "${TMP_DB}" "${query}";
+    [ $? -ne 0 ] && _err "Failed to mark row as pulled in TMP_DB.\n  name: '${name}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+
+    return 0;
 };
 
-_setSizeDone() {
-    local size="${1}";
-    
-    SIZE_DONE=$((SIZE_DONE + size));
+_skipped() {
 
-    echo $SIZE_DONE > "${TMP_FILE_SIZE_DONE}";
+    local name="${1}";
+    local query="UPDATE dirs SET skipped = 1, sort = 0 WHERE name = '${name}';";
+
+    sqlite3 "${TMP_DB}" "${query}";
+    [ $? -ne 0 ] && _err "Failed to mark row as skipped in TMP_DB.\n  name: '${name}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+
+    return 0;
+};
+
+_disable() {
+
+    local name="${1}";
+    local query="UPDATE dirs SET pull = 0 WHERE name = '${name}';";
+
+    sqlite3 "${TMP_DB}" "${query}";
+    [ $? -ne 0 ] && _err "Failed to mark row as not to be pulled in TMP_DB.\n  name: '${name}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+
+    return 0;
+};
+
+_updateSizeDone() {
+
+    local name="${1}";
+    local query="SELECT size FROM dirs WHERE name = '${name}';";
+    local size;
+
+    size="$(sqlite3 "${TMP_DB}" "${query}")";
+    [ $? -ne 0 ] && _err "Failed to get size from TMP_DB.\n  name: '${name}'\n  size: '${size}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+
+    SIZE_DONE=$((SIZE_DONE + size));
 };
 
 _percentDone() {
+
     local decimal;
     local percent;
 
@@ -475,25 +837,37 @@ _percentDone() {
 
 # Manage temporary files and report any final errors.
 _cleanUp() {
-    if [ -z "$(cat "${TMP_FILE_INFOS}")" ]; then
-        gvfs-trash "${TMP_FILE_INFOS}";
-        gvfs-trash "${TMP_FILE_DIRS}";
-        gvfs-trash "${TMP_FILE_SIZE_TOTAL}";
-        gvfs-trash "${TMP_FILE_SIZE_DONE}";
-    fi;
-    [ -z "${INCOMPLETE[*]}" ] && return 0;
+
+    [-e "${TMP_FILE_DIRS}" ] && gvfs-trash "${TMP_FILE_DIRS}";
 
     echo;
-    echo "Did not pull ${INCOMPLETE[*]}";
-    _c green "echo -n ==\> Pull them now?";
-    if _yN 10; then
+    echo "Did not pull:";
+    _fetchNonPulled;
+
+    if (_c green "echo -n ==\> Pull them now?" && _yN 10); then #yes
         "$0";
         exit $?;
     fi;
 
-    _c green "echo -n ==\> Remember to pull these files the next time this script is run?";
-    _Yn 10 || gvfs-trash "${TMP_FILE_INFOS}";
+    if (_c green "echo -n ==\> Remember to pull these files the next time this script is run?" && _Yn 10); then #yes
+        return 0;
+    else
+        [-e "${TMP_DB}" ] && gvfs-trash "${TMP_DB}";
+    fi;
 };
+
+_fetchNonPulled() {
+
+    local query="SELECT name FROM dirs WHERE pulled = 0;";
+
+    sqlite3 "${TMP_DB}" "${query}";
+    [ $? -ne 0 ] && _err "Failed to fetch non-pulled rows from TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+
+    return 0;
+};
+#
+## /new
+#
 
 _init "$@";
 _main || exit $?;
