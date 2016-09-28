@@ -109,131 +109,6 @@ _getopts() {
     mkdir -p "${DST}";
 };
 
-# Set console color.
-# Optionally, run a command afterwards, and once the command returns,
-#   reset the console color to normal.
-_c() {
-    local -A Codes=( 
-        ["black"]="0" 
-        ["red"]="1" 
-        ["green"]="2" 
-        ["yellow"]="3" 
-        ["blue"]="4" 
-        ["magenta"]="5" 
-        ["cyan"]="6" 
-        ["white"]="7" 
-        ["bk"]="0" 
-        ["r"]="1" 
-        ["g"]="2" 
-        ["y"]="3" 
-        ["bu"]="4" 
-        ["m"]="5" 
-        ["c"]="6" 
-        ["w"]="7" 
-    );
-
-    local k c;
-    for k in "${!Codes[@]}"; do
-        [ "${k}" = "${1}" ] &&
-            c="${Codes[$k]}";
-    done;
-
-    [ -n "${c}" ] &&
-        tput setaf "${c}";
-    
-    [ -z "${*:2}" ] &&
-        return;
-    eval "${@:2}";
-    tput sgr0;
-};
-
-# Set the console color to bold.
-# Optionally, pass any arguments to function '_c'.
-_C() {
-    tput bold;
-    [ -n "$*" ] &&
-        _c "$@";
-};
-
-# Reset console color to normal.
-_u() {
-    tput sgr0;
-};
-
-# Echo a command, and then evaluate it.
-_evalcho() {
-    echo "$@";
-    eval "$@";
-};
-
-# Exit with status 1 after echoing an error message.
-_err() {
-    local err="$*";
-    [ -z "${err}" ] &&
-        err="An error occurred. Cannot continue.";
-
-    _c red;
-    echo -e "${err}";
-    _u;
-    exit 1;
-};
-
-# Run a command silently.
-_q() {
-    eval "$@" >&/dev/null;
-};
-
-# Ask user to answer a "yes or no" question.
-# Analyse the user's answer, with NO as the default.
-_yN() {
-    local -i t="${1}";
-    local ans;
-
-    if [ "${t}" != 0 ]; then
-        read -t "${t}" -p "${*:2} [y/N]: " ans;
-    else
-        read -p "$* [y/N]: " ans;
-    fi;
-
-    [ -z "${ans}" ] && echo;
-
-    case "${ans}" in [yY] | [yY][eE][sS])
-        return 0;
-    esac;
-    return 1;
-};
-
-# Ask user to answer a "yes or no" question.
-# Analyse the user's answer, with YES as the default.
-_Yn() {
-    local -i t="${1}";
-    local ans;
-
-    if [ "${t}" = 0 ]; then
-        read -p "$* [Y/n]: " ans;
-    else
-        read -t "${t}" -p "${*:2} [Y/n]: " ans;
-    fi;
-
-    [ -z "${ans}" ] && echo;
-
-    case "${ans}" in [nN] | [nN][oO])
-        return 1;
-    esac;
-    return 0;
-};
-
-# Wait for Android device to connect.
-_connect() {
-    local connected;
-    connected="$(adb devices | head -2 | tail -1)";
-    if [ "${connected}" ]; then
-        return 0;
-    fi;
-    echo "Waiting for Android device to connect...";
-    adb wait-for-device;
-};
-
 # Remove a trailing '/' from a string if it exists.
 _fmtDir() {
     local d="$*";
@@ -251,6 +126,17 @@ _init() {
     _connect || exit $?;
 
     _dbCreate;
+};
+
+# Wait for Android device to connect.
+_connect() {
+    local connected;
+    connected="$(adb devices | head -2 | tail -1)";
+    if [ "${connected}" ]; then
+        return 0;
+    fi;
+    echo "Waiting for Android device to connect...";
+    adb wait-for-device;
 };
 
 _main() {
@@ -602,6 +488,120 @@ _fetchNonPulled() {
     sqlite3 "${TMP_DB}" "${query}";
     [ $? -ne 0 ] && _err "Failed to fetch non-pulled rows from TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
 
+    return 0;
+};
+
+# Set console color.
+# Optionally, run a command afterwards, and once the command returns,
+#   reset the console color to normal.
+_c() {
+    local -A Codes=( 
+        ["black"]="0" 
+        ["red"]="1" 
+        ["green"]="2" 
+        ["yellow"]="3" 
+        ["blue"]="4" 
+        ["magenta"]="5" 
+        ["cyan"]="6" 
+        ["white"]="7" 
+        ["bk"]="0" 
+        ["r"]="1" 
+        ["g"]="2" 
+        ["y"]="3" 
+        ["bu"]="4" 
+        ["m"]="5" 
+        ["c"]="6" 
+        ["w"]="7" 
+    );
+
+    local k c;
+    for k in "${!Codes[@]}"; do
+        [ "${k}" = "${1}" ] &&
+            c="${Codes[$k]}";
+    done;
+
+    [ -n "${c}" ] &&
+        tput setaf "${c}";
+    
+    [ -z "${*:2}" ] &&
+        return;
+    eval "${@:2}";
+    tput sgr0;
+};
+
+# Set the console color to bold.
+# Optionally, pass any arguments to function '_c'.
+_C() {
+    tput bold;
+    [ -n "$*" ] &&
+        _c "$@";
+};
+
+# Reset console color to normal.
+_u() {
+    tput sgr0;
+};
+
+# Echo a command, and then evaluate it.
+_evalcho() {
+    echo "$@";
+    eval "$@";
+};
+
+# Exit with status 1 after echoing an error message.
+_err() {
+    local err="$*";
+    [ -z "${err}" ] &&
+        err="An error occurred. Cannot continue.";
+
+    _c red;
+    echo -e "${err}";
+    _u;
+    exit 1;
+};
+
+# Run a command silently.
+_q() {
+    eval "$@" >&/dev/null;
+};
+
+# Ask user to answer a "yes or no" question.
+# Analyse the user's answer, with NO as the default.
+_yN() {
+    local -i t="${1}";
+    local ans;
+
+    if [ "${t}" != 0 ]; then
+        read -t "${t}" -p "${*:2} [y/N]: " ans;
+    else
+        read -p "$* [y/N]: " ans;
+    fi;
+
+    [ -z "${ans}" ] && echo;
+
+    case "${ans}" in [yY] | [yY][eE][sS])
+        return 0;
+    esac;
+    return 1;
+};
+
+# Ask user to answer a "yes or no" question.
+# Analyse the user's answer, with YES as the default.
+_Yn() {
+    local -i t="${1}";
+    local ans;
+
+    if [ "${t}" = 0 ]; then
+        read -p "$* [Y/n]: " ans;
+    else
+        read -t "${t}" -p "${*:2} [Y/n]: " ans;
+    fi;
+
+    [ -z "${ans}" ] && echo;
+
+    case "${ans}" in [nN] | [nN][oO])
+        return 1;
+    esac;
     return 0;
 };
 
