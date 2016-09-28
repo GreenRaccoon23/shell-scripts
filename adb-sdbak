@@ -8,7 +8,7 @@ declare -r SCRIPT="${SCRIPT_PATH##*/}";
 
 declare -r SCRIPT_DIR="$(dirname "$0")";
 
-declare -r TMP_DB="${SCRIPT_DIR}/.${SCRIPT}.tmp.db"; #new
+declare -r TMP_DB="${SCRIPT_DIR}/.${SCRIPT}.tmp.db";
 
 declare -r TMP_FILE_DIRS="${SCRIPT_DIR}/.${SCRIPT}_dirs.tmp";
 
@@ -21,7 +21,7 @@ declare DST;
 SRC="/sdcard";
 DST="${HOME}/tmp/$(basename ${SRC})_$(date +%Y-%m-%d)";
 
-declare -a DIRS; #new
+declare -a DIRS;
 declare SIZE_TOTAL=0;
 declare SIZE_DONE=0;
 
@@ -96,7 +96,7 @@ _getopts() {
     # Set bool options.
     DO_FORCE="${Bools[1]}";
     if [ -n "${DO_FORCE}" ]; then
-        [ -e "${TMP_DB}" ] && gvfs-trash "${TMP_DB}"; #new
+        [ -e "${TMP_DB}" ] && gvfs-trash "${TMP_DB}";
         [ -e "${TMP_FILE_DIRS}" ] && gvfs-trash "${TMP_FILE_DIRS}";
         [ -e "${TMP_FILE_INFOS}" ] && gvfs-trash "${TMP_FILE_INFOS}";
         [ -e "${TMP_FILE_SIZE_TOTAL}" ] && gvfs-trash "${TMP_FILE_SIZE_TOTAL}";
