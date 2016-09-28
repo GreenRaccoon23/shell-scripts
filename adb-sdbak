@@ -1,7 +1,7 @@
 #!/bin/bash
 shopt -s extglob
 
-declare -r PULL="adb-pull";
+declare -r CMD_PULL="adb-pull";
 declare -r CMD_RM="gvfs-trash";
 
 declare -r SCRIPT_PATH="$0";
@@ -48,7 +48,7 @@ OPTIONS:
 DEFAULT:
   ${SCRIPT_NAME} -r ${SRC} ${DST}
 NOTE:
-  Requires that the Bash script "${PULL}" is in the '\$PATH'.
+  Requires that the Bash script "${CMD_PULL}" is in the '\$PATH'.
   (E.g., place "${SCRIPT_NAME}" in "${HOME}/bin/" and 
     add 'export PATH=\$PATH:\$HOME/bin' to '~/.bashrc'.)
 EOH
@@ -479,7 +479,7 @@ _pull() {
     local name="${*}";
 
     if _c green "echo -n ==\> Pull \\\"${name}\\\"?" && _Yn 3; then #yes
-        "${PULL}" "${SRC}/${name}" &&
+        "${CMD_PULL}" "${SRC}/${name}" &&
             _pulled "${name}" &&
             _updateSizeDone "${name}";
 
