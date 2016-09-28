@@ -11,10 +11,6 @@ declare -r SCRIPT_DIR="$(dirname "$0")";
 declare -r TMP_DB="${SCRIPT_DIR}/.${SCRIPT}.tmp.db"; #new
 
 declare -r TMP_FILE_DIRS="${SCRIPT_DIR}/.${SCRIPT}_dirs.tmp";
-# declare -r TMP_FILE_INFOS="${SCRIPT_DIR}/.${SCRIPT}_dirs-infos.tmp";
-# declare -r TMP_FILE_SIZE_TOTAL="${SCRIPT_DIR}/.${SCRIPT}_size-total.tmp";
-# declare -r TMP_FILE_SIZE_DONE="${SCRIPT_DIR}/.${SCRIPT}_size-done.tmp";
-# declare -r INFO_SEPARATOR=":/NULSEPARATOR/:";
 
 # Set bool options.
 declare DO_FORCE;
@@ -26,10 +22,8 @@ SRC="/sdcard";
 DST="${HOME}/tmp/$(basename ${SRC})_$(date +%Y-%m-%d)";
 
 declare -a DIRS; #new
-# declare -a INFOS;
 declare SIZE_TOTAL=0;
 declare SIZE_DONE=0;
-# declare -a INCOMPLETE;
 
 # Print help and exit.
 _help() {
@@ -252,259 +246,6 @@ _fmtDir() {
     fi;
 };
 
-#
-# deprecate
-# 
-# _init() {
-
-#     _getopts "$@";
-
-#     _connect || exit $?;
-# };
-
-# _main() {
-
-#     _getInfos || exit $?;
-
-#     _getSizeTotal || exit $?;
-
-#     _getSizeDone || exit $?;
-
-#     _q pushd "${DST}";
-#     _backup;
-#     _q popd;
-
-#     _cleanUp;
-
-#     echo "${DST}";
-# };
-
-# _getInfos() {
-#     # [ -e "${TMP_FILE_INFOS}" ] && rm "${TMP_FILE_INFOS}"; #delete
-#     [ ! -e "${TMP_FILE_INFOS}" ] && _setInfos;
-
-#     IFS=$'\r\n' read -d '' -r -a INFOS < "${TMP_FILE_INFOS}";
-#     [ -z "${INFOS[*]}" ] && _err "Failed to get directories and size info under ${SRC}/.";
-#     return 0;
-# };
-
-# _setInfos() {
-#     _setDirs;
-#     [ ! -e "${TMP_FILE_DIRS}" ] && _err "TMP_FILE_DIRS \"${TMP_FILE_DIRS}\" does not exist";
-
-#     [ -e "${TMP_FILE_INFOS}" ] && gvfs-trash "${TMP_FILE_INFOS}";
-#     [ -e "${TMP_FILE_SIZE_TOTAL}" ] && gvfs-trash "${TMP_FILE_SIZE_TOTAL}";
-#     [ -e "${TMP_FILE_SIZE_DONE}" ] && gvfs-trash "${TMP_FILE_SIZE_DONE}";
-
-#     local dirs;
-#     IFS=$'\r\n' read -d '' -r -a dirs < "${TMP_FILE_DIRS}";
-
-#     local d;
-#     local -i size;
-#     local -i total=0;
-
-#     _c green "echo Getting dir sizes...";
-
-#     for d in "${dirs[@]}"; do
-#         # _adbDirSize "${d}"; continue; #delete
-#         size="$(_adbDirSize "${d}")";
-#         if [ -z "${size}" ]; then
-#             _c yellow "echo Failed to get size of \"${d}\"";
-#             size=0;
-#         fi;
-
-#         total=$((total + size));
-#         echo "${d}${INFO_SEPARATOR}${size}" >> "${TMP_FILE_INFOS}";
-#     done;
-#     # exit; #delete
-
-#     [ -z "${total}" ] && _err "Total size should be greater than 0. total: $total";
-
-#     echo $total > "${TMP_FILE_SIZE_TOTAL}";
-#     echo "0" > "${TMP_FILE_SIZE_DONE}";
-# };
-
-# # Store the target directories into an array
-# # and save them in a temporary file.
-# _setDirs() {
-#     [ -e "${TMP_FILE_DIRS}" ] && gvfs-trash "${TMP_FILE_DIRS}";
-
-#     _c green "echo Getting dirs...";
-#     echo " " adb shell \"su -c /su/xbin/ls --color=never -A1 ${SRC}/\" '>' \"${TMP_FILE_DIRS}\";
-#     adb shell "su -c /su/xbin/ls --color=never -A1 ${SRC}/" > "${TMP_FILE_DIRS}";
-# };
-
-# _adbDirSize() {
-#     local path="/sdcard/${1}";
-
-#     local info;
-#     local statuss;
-#     local size;
-#     local tab;
-
-#     info="$(adb shell "du -ack \"${path}\"; printf $?")";
-
-#     statuss="$(echo "${info}" | tail -n 1)";
-#     if [ "${statuss}" != "0" ]; then
-#         echo "0";
-#         return;
-#     fi;
-
-#     info="$(echo "${info}" | tail -n 2 | head -n 1)";
-
-#     size="${info%% *}";
-#     tab="$(echo -e "\t")";
-#     size="${size%%$tab*}";
-
-#     echo "${size}";
-# };
-
-# _getSizeTotal() {
-#     SIZE_TOTAL="$(cat "${TMP_FILE_SIZE_TOTAL}")";
-#     [ -z "${SIZE_TOTAL}" ] && _err "Failed to get size total from \"${TMP_FILE_SIZE_TOTAL}\"";
-#     return 0;
-# };
-
-# _getSizeDone() {
-#     SIZE_DONE="$(cat "${TMP_FILE_SIZE_DONE}")";
-#     [ -z "${SIZE_DONE}" ] && _err "Failed to get size done from \"${TMP_FILE_SIZE_DONE}\"";
-#     return 0;
-# };
-
-# # Pull each file from the device.
-# _backup() {
-#     local info;
-#     local d;
-#     local size;
-
-#     echo "Starting backup";
-
-#     for info in "${INFOS[@]}"; do
-#         [ -z "${info}" ] && continue;
-
-#         d="${info%$INFO_SEPARATOR*}";
-#         size="${info#*$INFO_SEPARATOR}";
-
-#         [ "${d}${INFO_SEPARATOR}${size}" != "${info}" ] && _err "Syntax err: Failed to split dir info into 'dir' and 'size'";
-
-#         [ -z "${size}" ] && size=0;
-
-#         # echo "d: \"$d\" size: \"$size\""; #delete
-#         # SIZE_DONE=$((SIZE_DONE + size)); #delete
-#         # _percentDone;
-#         # continue; #delete
-#         # _c blue "echo Progress: ${SIZE_DONE}/${SIZE_TOTAL}KB $(_percentDone)%"; #delete
-#         # continue; #delete
-
-#         if _pull "${d}"; then
-#             _dequeue;
-#             _setSizeDone "${size}";
-#         else
-#             echo "${d}" >> "${TMP_FILE_DIRS}";
-#             echo "${info}" >> "${TMP_FILE_INFOS}";
-#             INCOMPLETE+=("${d}");
-#         fi;
-
-#         _c blue "echo Progress: ${SIZE_DONE} KB / ${SIZE_TOTAL} KB $(_percentDone)%";
-#     done;
-# };
-
-# _pull() {
-#     local d="${*}";
-#     local -i remove=1;
-
-#     _c green "echo -n ==\> Pull \\\"${d}\\\"?";
-
-#     if ! _Yn 3; then #no
-#         _c green "echo -n ==\> Remove \\\"${d}\\\" from backup list?";
-
-#         if _yN 30; then #yes
-#              #dequeue
-#             remove=0;
-#         else
-#             #requeue
-#             _dequeue;
-#             remove=1;
-#         fi;
-
-#         return $remove;
-#     fi;
-
-#     "${PULL}" "${SRC}/${d}";
-#     return $?;
-# };
-
-# _dequeue() {
-#     sed -i -e '1d' "${TMP_FILE_DIRS}";
-#     sed -i -e '1d' "${TMP_FILE_INFOS}";
-# };
-
-# _setSizeDone() {
-#     local size="${1}";
-    
-#     SIZE_DONE=$((SIZE_DONE + size));
-
-#     echo $SIZE_DONE > "${TMP_FILE_SIZE_DONE}";
-# };
-
-# _percentDone() {
-#     local decimal;
-#     local percent;
-
-#     if [ -z "${SIZE_DONE}" ]; then
-#         echo "00.00";
-#     elif [ "${SIZE_DONE}" = "${SIZE_TOTAL}" ]; then
-#         echo "100.00";
-#     else
-#         decimal=$(bc <<< "scale=4; ${SIZE_DONE}/${SIZE_TOTAL}");
-#         percent=$(bc <<< "scale=4; ${decimal}*100");
-#         # echo $percent; #delete
-
-#         # yeah, this is nonsense. good luck
-#         if [ "${percent}" = "0" ]; then
-#             echo "00.00";
-
-#         elif [ "${percent:0:1}" = "." ]; then
-#             echo "00.${percent:1:2}";
-
-#         elif [ "${percent:1:1}" = "." ]; then
-#             echo "0${percent:0:1}.${percent:2:2}";
-
-#         elif [ "${percent:2:1}" = "." ]; then
-#             echo "${percent:0:2}.${percent:3:2}";
-
-#         else
-#             echo "${percent:1:2}.${percent:3:4}";
-#         fi;
-#     fi;
-# }
-
-# # Manage temporary files and report any final errors.
-# _cleanUp() {
-#     if [ -z "$(cat "${TMP_FILE_INFOS}")" ]; then
-#         gvfs-trash "${TMP_FILE_INFOS}";
-#         gvfs-trash "${TMP_FILE_DIRS}";
-#         gvfs-trash "${TMP_FILE_SIZE_TOTAL}";
-#         gvfs-trash "${TMP_FILE_SIZE_DONE}";
-#     fi;
-#     [ -z "${INCOMPLETE[*]}" ] && return 0;
-
-#     echo;
-#     echo "Did not pull ${INCOMPLETE[*]}";
-#     _c green "echo -n ==\> Pull them now?";
-#     if _yN 10; then
-#         "$0";
-#         exit $?;
-#     fi;
-
-#     _c green "echo -n ==\> Remember to pull these files the next time this script is run?";
-#     _Yn 10 || gvfs-trash "${TMP_FILE_INFOS}";
-# };
-#
-## /deprecate
-#
-## new
-#
 _init() {
 
     _getopts "$@";
@@ -865,9 +606,6 @@ _fetchNonPulled() {
 
     return 0;
 };
-#
-## /new
-#
 
 _init "$@";
 _main || exit $?;
