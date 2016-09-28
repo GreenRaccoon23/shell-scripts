@@ -2,6 +2,7 @@
 shopt -s extglob
 
 declare -r PULL="adb-pull";
+declare -r CMD_RM="gvfs-trash";
 
 declare -r SCRIPT_PATH="$0";
 declare -r SCRIPT_NAME="${SCRIPT_PATH##*/}";
@@ -96,8 +97,8 @@ _getopts() {
     # Set bool options.
     DO_FORCE="${Bools[1]}";
     if [ -n "${DO_FORCE}" ]; then
-        [ -e "${TMP_DB}" ] && gvfs-trash "${TMP_DB}";
-        [ -e "${TMP_FILE_DIRS}" ] && gvfs-trash "${TMP_FILE_DIRS}";
+        [ -e "${TMP_DB}" ] && "${CMD_RM}" "${TMP_DB}";
+        [ -e "${TMP_FILE_DIRS}" ] && "${CMD_RM}" "${TMP_FILE_DIRS}";
     fi;
 
     # Set string options.
@@ -576,7 +577,7 @@ _percentDone() {
 # Manage temporary files and report any final errors.
 _cleanUp() {
 
-    [-e "${TMP_FILE_DIRS}" ] && gvfs-trash "${TMP_FILE_DIRS}";
+    [-e "${TMP_FILE_DIRS}" ] && "${CMD_RM}" "${TMP_FILE_DIRS}";
 
     echo;
     echo "Did not pull:";
@@ -590,7 +591,7 @@ _cleanUp() {
     if (_c green "echo -n ==\> Remember to pull these files the next time this script is run?" && _Yn 10); then #yes
         return 0;
     else
-        [-e "${TMP_DB}" ] && gvfs-trash "${TMP_DB}";
+        [-e "${TMP_DB}" ] && "${CMD_RM}" "${TMP_DB}";
     fi;
 };
 
