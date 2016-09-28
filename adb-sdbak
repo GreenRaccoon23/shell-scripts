@@ -22,7 +22,7 @@ declare DST;
 SRC="/sdcard";
 DST="${HOME}/tmp/$(basename ${SRC})_$(date +%Y-%m-%d)";
 
-declare -a DIRS;
+declare -a SRC_DIRS;
 declare SIZE_TOTAL=0;
 declare SIZE_DONE=0;
 
@@ -239,8 +239,8 @@ _setDirs() {
 
     [ ! -e "${TMP_FILE_DIRS}" ] && _err "Code err! TMP_FILE_DIRS does not exist.\n  TMP_FILE_DIRS: '${TMP_FILE_DIRS}'";
 
-    IFS=$'\r\n' read -d '' -r -a DIRS < "${TMP_FILE_DIRS}";
-    [ -z "${DIRS[*]}" ] && _err "Failed to populate DIRS array from TMP_FILE_DIRS.\n  TMP_FILE_DIRS: '${TMP_FILE_DIRS}'";
+    IFS=$'\r\n' read -d '' -r -a SRC_DIRS < "${TMP_FILE_DIRS}";
+    [ -z "${SRC_DIRS[*]}" ] && _err "Failed to populate SRC_DIRS array from TMP_FILE_DIRS.\n  TMP_FILE_DIRS: '${TMP_FILE_DIRS}'";
 };
 
 _dbInsertDirs() {
@@ -250,7 +250,7 @@ _dbInsertDirs() {
     local name;
     local query;
 
-    for name in "${DIRS[@]}"; do
+    for name in "${SRC_DIRS[@]}"; do
         query="INSERT INTO dirs (name) VALUES ('${name}');";
         sqlite3 "${TMP_DB}" "${query}";
         [ $? -ne 0 ] && _err "Failed to insert name into dirs table of TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  name: '${name}'\n  query: '${query}'";
@@ -259,14 +259,14 @@ _dbInsertDirs() {
 
 _retrieveAndUpdateSizes() {
 
-    [ -z "${DIRS}" ] && _err "Code err! DIRS array is empty.\n  DIRS: '${DIRS}'";
+    [ -z "${SRC_DIRS}" ] && _err "Code err! SRC_DIRS array is empty.\n  SRC_DIRS: '${SRC_DIRS}'";
 
     local name;
     local -i size;
 
     _c green "echo Retrieving directory sizes...";
 
-    for name in "${DIRS[@]}"; do
+    for name in "${SRC_DIRS[@]}"; do
         # _adbDirSize "${name}"; continue; #delete
         size="$(_adbDirSize "${name}")";
         if [ -z "${size}" ]; then
@@ -347,14 +347,14 @@ _fetchDirs() {
 
     local query="SELECT name FROM dirs WHERE pulled = 0 AND pull = 1 ORDER BY sort ASC;";
 
-    IFS=$'\r\n' read -d '' -r -a DIRS < <(sqlite3 "${TMP_DB}" "${query}");
-    [ -z "${DIRS[*]}" ] && _err "Failed to populate DIRS array from TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+    IFS=$'\r\n' read -d '' -r -a SRC_DIRS < <(sqlite3 "${TMP_DB}" "${query}");
+    [ -z "${SRC_DIRS[*]}" ] && _err "Failed to populate SRC_DIRS array from TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
 };
 
 # Pull each file from the device.
 _backup() {
     local name;
-    for name in "${DIRS[@]}"; do
+    for name in "${SRC_DIRS[@]}"; do
         _pull "${name}";
         _c blue "echo Progress: ${SIZE_DONE} KB / ${SIZE_TOTAL} KB $(_percentDone)%";
     done;
