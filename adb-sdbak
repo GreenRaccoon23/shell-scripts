@@ -13,6 +13,19 @@ declare -r TMP_DB="${SCRIPT_DIR}/.${SCRIPT_NAME}.tmp.db";
 declare -r TMP_FILE_DIRS="${SCRIPT_DIR}/.${SCRIPT_NAME}_dirs.tmp";
 
 declare -r TABLE_SRC_DIRS="src_dirs";
+declare -r TABLE_SRC_DIRS_SCHEMA="
+    CREATE TABLE ${TABLE_SRC_DIRS} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name VARCHAR(255) NOT NULL DEFAULT '',
+        size BIGINT NOT NULL DEFAULT 0,
+        pull TINYINT NOT NULL DEFAULT 1,
+        pulled TINYINT NOT NULL DEFAULT 0,
+        skipped TINYINT NOT NULL DEFAULT 0,
+        sort MEDIUMINT NOT NULL DEFAULT 1,
+
+        UNIQUE (name) ON CONFLICT REPLACE
+    )
+;";
 
 # Set bool options.
 declare DO_FORCE;
@@ -136,19 +149,7 @@ _dbCreate() {
 
     _c green "echo Creating database...";
 
-    local query="
-        CREATE TABLE ${TABLE_SRC_DIRS} (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name VARCHAR(255) NOT NULL DEFAULT '',
-            size BIGINT NOT NULL DEFAULT 0,
-            pull TINYINT NOT NULL DEFAULT 1,
-            pulled TINYINT NOT NULL DEFAULT 0,
-            skipped TINYINT NOT NULL DEFAULT 0,
-            sort MEDIUMINT NOT NULL DEFAULT 1,
-
-            UNIQUE (name) ON CONFLICT REPLACE
-        )
-    ;";
+    local query="${TABLE_SRC_DIRS_SCHEMA}";
 
     sqlite3 "${TMP_DB}" "${query}";
     [ $? -ne 0 ] && _err "Failed to create database.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
