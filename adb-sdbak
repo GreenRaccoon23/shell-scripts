@@ -193,8 +193,8 @@ _dbPopulate() {
 
     _dbPopulated && return 0;
 
-    _pullAndInsertDstNames;
-    _pullAndUpdateDstSizes;
+    _pullAndInsertSrcNames;
+    _pullAndUpdateSrcSizes;
 };
 
 _dbPopulated() {
@@ -209,7 +209,7 @@ _dbPopulated() {
     return 0;
 };
 
-_pullAndInsertDstNames() {
+_pullAndInsertSrcNames() {
 
     _pullDstNames;
     _setSrcNames;
@@ -250,7 +250,7 @@ _dbInsertDirs() {
     done;
 };
 
-_pullAndUpdateDstSizes() {
+_pullAndUpdateSrcSizes() {
 
     [ -z "${SRC_NAMES}" ] && _err "Code err! SRC_NAMES array is empty.\n  SRC_NAMES: '${SRC_NAMES}'";
 
