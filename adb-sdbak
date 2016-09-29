@@ -36,6 +36,7 @@ declare DST_PARENT;
 SRC_PARENT="/sdcard";
 DST_PARENT="${HOME}/tmp/$(basename ${SRC_PARENT})_$(date +%Y-%m-%d)";
 
+declare -a SRC_INFOS;
 declare -a SRC_NAMES;
 declare SRC_SIZE_TOTAL=0;
 declare SRC_SIZE_PULLED=0;
@@ -171,6 +172,8 @@ _main() {
 
     _dbPopulate || exit $?;
 
+    _showSrcDirs || exit $?;
+
     _c green "echo Counting total size of directories...";
     _setSrcSizeTotal || exit $?;
 
@@ -210,6 +213,60 @@ _dbPopulated() {
 
     [ "${count}" = "0" ] && return 1;
     return 0;
+};
+
+_showSrcDirs() {
+
+    _dbFetchInfos;
+    _printInfos;
+};
+
+_dbFetchInfos() {
+
+    local query="SELECT id, size, name FROM ${TABLE_SRC_DIRS} WHERE pulled = 0 AND pull = 1 ORDER BY sort ASC;";
+
+    IFS=$'\r\n' read -d '' -r -a SRC_INFOS < <(sqlite3 -header "${TMP_DB}" "${query}");
+    [ -z "${SRC_INFOS[*]}" ] && _err "Failed to populate SRC_INFOS array from TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+};
+
+_printInfos() {
+
+    local widthCellIdd=5;
+    local widthCellSize=10;
+
+    local separator;
+    separator=$(printf '%0.1s' " "{1..1000});
+
+    local row;
+    local -a cells;
+    local idd;
+    local size;
+    local name;
+    local spacing;
+
+    _c green "echo Directories to be pulled:";
+
+    for row in "${SRC_INFOS[@]}"; do
+
+        IFS='|' read -ra cells <<< "${row}";
+        idd="${cells[0]}";
+        size="${cells[1]}";
+        name="${cells[2]}";
+
+        idd="[${idd}]";
+
+        printf '    ';
+
+        spacing=$((widthCellIdd - ${#idd}));
+        printf '%s' "${idd}";
+        printf '%*.*s' 0 "${spacing}" "${separator}";
+
+        spacing=$((widthCellSize - ${#size}));
+        printf '%s' "${size}";
+        printf '%*.*s' 0 "${spacing}" "${separator}";
+
+        printf '%s\n' "${name}";
+    done;
 };
 
 _pullAndInsertNames() {
