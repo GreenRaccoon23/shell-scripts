@@ -190,7 +190,7 @@ _main() {
 
 _dbPopulate() {
 
-    _dirsPopulated && return 0;
+    _dbPopulated && return 0;
 
     _retrieveDirs;
     _setDirs;
@@ -199,7 +199,7 @@ _dbPopulate() {
     _retrieveAndUpdateSizes;
 };
 
-_dirsPopulated() {
+_dbPopulated() {
 
     local count;
     local query="SELECT COUNT(id) FROM dirs LIMIT 1;";
