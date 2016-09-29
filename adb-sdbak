@@ -197,7 +197,7 @@ _dbPopulate() {
     _setDirs;
     _dbInsertDirs;
 
-    _retrieveAndUpdateSizes;
+    _pullAndUpdateDstSizes;
 };
 
 _dbPopulated() {
@@ -246,7 +246,7 @@ _dbInsertDirs() {
     done;
 };
 
-_retrieveAndUpdateSizes() {
+_pullAndUpdateDstSizes() {
 
     [ -z "${SRC_NAMES}" ] && _err "Code err! SRC_NAMES array is empty.\n  SRC_NAMES: '${SRC_NAMES}'";
 
