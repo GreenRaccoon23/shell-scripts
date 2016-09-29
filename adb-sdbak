@@ -109,16 +109,6 @@ _getopts() {
     mkdir -p "${DST_PARENT}";
 };
 
-# Remove a trailing '/' from a string if it exists.
-_trimEndSlash() {
-    local d="$*";
-    if [ "${d: -1}" = "/" ]; then
-        echo "${d:: -1}";
-    else
-        echo "${d}";
-    fi;
-};
-
 _init() {
 
     _getopts "$@";
@@ -603,6 +593,16 @@ _Yn() {
         return 1;
     esac;
     return 0;
+};
+
+# Remove a trailing '/' from a string if it exists.
+_trimEndSlash() {
+    local d="$*";
+    if [ "${d: -1}" = "/" ]; then
+        echo "${d:: -1}";
+    else
+        echo "${d}";
+    fi;
 };
 
 _init "$@";
