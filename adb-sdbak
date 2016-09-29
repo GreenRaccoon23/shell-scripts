@@ -22,7 +22,7 @@ DST_PARENT="${HOME}/tmp/$(basename ${SRC_PARENT})_$(date +%Y-%m-%d)";
 
 declare -a SRC_NAMES;
 declare SIZE_TOTAL=0;
-declare SIZE_DONE=0;
+declare SIZE_PULLED=0;
 
 # Print help and exit.
 _help() {
@@ -323,10 +323,10 @@ _setSizeDone() {
 
     local query="SELECT SUM(size) FROM dirs WHERE pulled = 1 OR pull = 0;";
 
-    SIZE_DONE="$(sqlite3 "${TMP_DB}" "${query}")";
-    [ $? -ne 0 ] && _err "Failed to get size done from TMP_DB.\n  SIZE_DONE: '${SIZE_DONE}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+    SIZE_PULLED="$(sqlite3 "${TMP_DB}" "${query}")";
+    [ $? -ne 0 ] && _err "Failed to get size done from TMP_DB.\n  SIZE_PULLED: '${SIZE_PULLED}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
 
-    [ -z "${SIZE_DONE}" ] && SIZE_DONE=0;
+    [ -z "${SIZE_PULLED}" ] && SIZE_PULLED=0;
 
     return 0;
 };
@@ -344,7 +344,7 @@ _backup() {
     local name;
     for name in "${SRC_NAMES[@]}"; do
         _pull "${name}";
-        _c blue "echo Progress: ${SIZE_DONE} KB / ${SIZE_TOTAL} KB $(_percentDone)%";
+        _c blue "echo Progress: ${SIZE_PULLED} KB / ${SIZE_TOTAL} KB $(_percentDone)%";
     done;
 };
 
@@ -412,7 +412,7 @@ _updateSizeDone() {
     size="$(sqlite3 "${TMP_DB}" "${query}")";
     [ $? -ne 0 ] && _err "Failed to get size from TMP_DB.\n  name: '${name}'\n  size: '${size}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
 
-    SIZE_DONE=$((SIZE_DONE + size));
+    SIZE_PULLED=$((SIZE_PULLED + size));
 };
 
 _percentDone() {
@@ -420,12 +420,12 @@ _percentDone() {
     local decimal;
     local percent;
 
-    if [ -z "${SIZE_DONE}" ]; then
+    if [ -z "${SIZE_PULLED}" ]; then
         echo "00.00";
-    elif [ "${SIZE_DONE}" = "${SIZE_TOTAL}" ]; then
+    elif [ "${SIZE_PULLED}" = "${SIZE_TOTAL}" ]; then
         echo "100.00";
     else
-        decimal=$(bc <<< "scale=4; ${SIZE_DONE}/${SIZE_TOTAL}");
+        decimal=$(bc <<< "scale=4; ${SIZE_PULLED}/${SIZE_TOTAL}");
         percent=$(bc <<< "scale=4; ${decimal}*100");
         # echo $percent; #delete
 
