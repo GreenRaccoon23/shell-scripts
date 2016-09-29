@@ -171,19 +171,19 @@ _main() {
     _dbPopulate || exit $?;
 
     _c green "echo Counting total size of directories...";
-    _setSizeTotal || exit $?;
+    _setSrcSizeTotal || exit $?;
 
     _c green "echo Counting total size of any pulled directories...";
-    _setSizeDone || exit $?;
+    _setSrcSizePulled || exit $?;
 
     # _choose; #todo: do this?
 
     _c green "echo Fetching list of directories to pull...";
-    _fetchDirs;
+    _dbFetchSrcNames;
 
     _q pushd "${DST_PARENT}";
     _c green "echo Starting backup";
-    _backup;
+    _pullSrcDirs;
     _q popd;
 
     _cleanUp;
@@ -314,7 +314,7 @@ _dbUpdateSrcSize() {
     return 0;
 };
 
-_setSizeTotal() {
+_setSrcSizeTotal() {
 
     local query="SELECT SUM(size) FROM ${TABLE_SRC_DIRS};";
 
@@ -325,7 +325,7 @@ _setSizeTotal() {
     return 0;
 };
 
-_setSizeDone() {
+_setSrcSizePulled() {
 
     local query="SELECT SUM(size) FROM ${TABLE_SRC_DIRS} WHERE pulled = 1 OR pull = 0;";
 
@@ -337,7 +337,7 @@ _setSizeDone() {
     return 0;
 };
 
-_fetchDirs() {
+_dbFetchSrcNames() {
 
     local query="SELECT name FROM ${TABLE_SRC_DIRS} WHERE pulled = 0 AND pull = 1 ORDER BY sort ASC;";
 
@@ -346,15 +346,15 @@ _fetchDirs() {
 };
 
 # Pull each file from the device.
-_backup() {
+_pullSrcDirs() {
     local name;
     for name in "${SRC_NAMES[@]}"; do
-        _pull "${name}";
+        _pullSrcDir "${name}";
         _c blue "echo Progress: ${SRC_SIZE_PULLED} KB / ${SRC_SIZE_TOTAL} KB $(_percentDone)%";
     done;
 };
 
-_pull() {
+_pullSrcDir() {
 
     local name="${*}";
 
