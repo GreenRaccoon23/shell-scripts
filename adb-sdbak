@@ -193,7 +193,7 @@ _dbPopulate() {
 
     _dbPopulated && return 0;
 
-    _retrieveDirs;
+    _pullDstNames;
     _setDirs;
     _dbInsertDirs;
 
@@ -214,7 +214,7 @@ _dbPopulated() {
 
 # Store the target directories into an array
 # and save them in a temporary file.
-_retrieveDirs() {
+_pullDstNames() {
 
     [ -e "${TMP_FILE_DIRS}" ] && return 0;
 
