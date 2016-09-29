@@ -212,7 +212,7 @@ _dbPopulated() {
 _pullAndInsertDstNames() {
 
     _pullDstNames;
-    _setDirs;
+    _setSrcNames;
     _dbInsertDirs;
 };
 
@@ -228,7 +228,7 @@ _pullDstNames() {
     adb shell "su -c ${BUSYBOX}/ls --color=never -A1 ${SRC_PARENT}/" > "${TMP_FILE_DIRS}";
 };
 
-_setDirs() {
+_setSrcNames() {
 
     [ ! -e "${TMP_FILE_DIRS}" ] && _err "Code err! TMP_FILE_DIRS does not exist.\n  TMP_FILE_DIRS: '${TMP_FILE_DIRS}'";
 
