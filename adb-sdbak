@@ -6,11 +6,9 @@ declare -r CMD_RM="gvfs-trash";
 
 declare -r SCRIPT_PATH="$0";
 declare -r SCRIPT_NAME="${SCRIPT_PATH##*/}";
-
 declare -r SCRIPT_DIR="$(dirname "$0")";
 
 declare -r TMP_DB="${SCRIPT_DIR}/.${SCRIPT_NAME}.tmp.db";
-
 declare -r TMP_FILE_DIRS="${SCRIPT_DIR}/.${SCRIPT_NAME}_dirs.tmp";
 
 # Set bool options.
