@@ -17,10 +17,10 @@ declare -r TMP_FILE_DIRS="${SCRIPT_DIR}/.${SCRIPT_NAME}_dirs.tmp";
 declare DO_FORCE;
 
 # Set string options.
-declare SRC;
+declare SRC_PARENT;
 declare DST;
-SRC="/sdcard";
-DST="${HOME}/tmp/$(basename ${SRC})_$(date +%Y-%m-%d)";
+SRC_PARENT="/sdcard";
+DST="${HOME}/tmp/$(basename ${SRC_PARENT})_$(date +%Y-%m-%d)";
 
 declare -a SRC_DIRS;
 declare SIZE_TOTAL=0;
@@ -46,7 +46,7 @@ OPTIONS:
     Force redo a a full backup, even if a previous one did not complete.
     CAUTION: Any existing files will be overwritten.
 DEFAULT:
-  ${SCRIPT_NAME} -r ${SRC} ${DST}
+  ${SCRIPT_NAME} -r ${SRC_PARENT} ${DST}
 NOTE:
   Requires that the Bash script "${CMD_PULL}" is in the '\$PATH'.
   (E.g., place "${SCRIPT_NAME}" in "${HOME}/bin/" and 
@@ -103,7 +103,7 @@ _getopts() {
 
     # Set string options.
     [ -n "${Strings[0]}" ] &&
-        SRC="$(_fmtDir "${Strings[0]}")";
+        SRC_PARENT="$(_fmtDir "${Strings[0]}")";
     [ -n "${Strings[1]}" ] &&
         DST="$(_fmtDir "${Strings[1]}")";
     mkdir -p "${DST}";
@@ -231,8 +231,8 @@ _retrieveDirs() {
 
     _c green "echo Retrieving directories...";
 
-    echo " " adb shell \"su -c /su/xbin/ls --color=never -A1 ${SRC}/\" '>' \"${TMP_FILE_DIRS}\";
-    adb shell "su -c /su/xbin/ls --color=never -A1 ${SRC}/" > "${TMP_FILE_DIRS}";
+    echo " " adb shell \"su -c /su/xbin/ls --color=never -A1 ${SRC_PARENT}/\" '>' \"${TMP_FILE_DIRS}\";
+    adb shell "su -c /su/xbin/ls --color=never -A1 ${SRC_PARENT}/" > "${TMP_FILE_DIRS}";
 };
 
 _setDirs() {
@@ -365,7 +365,7 @@ _pull() {
     local name="${*}";
 
     if _c green "echo -n ==\> Pull \\\"${name}\\\"?" && _Yn 3; then #yes
-        "${CMD_PULL}" "${SRC}/${name}" &&
+        "${CMD_PULL}" "${SRC_PARENT}/${name}" &&
             _pulled "${name}" &&
             _updateSizeDone "${name}";
 
