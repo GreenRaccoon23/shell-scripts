@@ -285,7 +285,6 @@ _adbDirSize() {
     local statuss;
     local size;
 
-    # info="$(adb shell "du -ack \"${name}\"; printf $?")";
     info="$(adb shell "du -sck \"${name}\"; printf $?")";
 
     statuss="$(echo "${info}" | tail -n 1)"; # last line: '0'
