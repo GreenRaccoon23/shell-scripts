@@ -12,6 +12,8 @@ declare -r SCRIPT_DIR="$(dirname "$0")";
 declare -r TMP_DB="${SCRIPT_DIR}/.${SCRIPT_NAME}.tmp.db";
 declare -r TMP_FILE_DIRS="${SCRIPT_DIR}/.${SCRIPT_NAME}_dirs.tmp";
 
+declare -r TABLE_SRC_DIRS="src_dirs";
+
 # Set bool options.
 declare DO_FORCE;
 
@@ -135,7 +137,7 @@ _dbCreate() {
     _c green "echo Creating database...";
 
     local query="
-        CREATE TABLE dirs (
+        CREATE TABLE ${TABLE_SRC_DIRS} (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name VARCHAR(255) NOT NULL DEFAULT '',
             size BIGINT NOT NULL DEFAULT 0,
@@ -155,7 +157,7 @@ _dbCreate() {
 _dbTableExists() {
 
     local name;
-    local query="SELECT name FROM sqlite_master WHERE type='table' AND name='dirs' LIMIT 1;";
+    local query="SELECT name FROM sqlite_master WHERE type='table' AND name='${TABLE_SRC_DIRS}' LIMIT 1;";
 
     name="$(sqlite3 "${TMP_DB}" "${query}")";
     [ $? -ne 0 ] && _err "Failed to check if tables exist in TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
@@ -200,7 +202,7 @@ _dbPopulate() {
 _dbPopulated() {
 
     local count;
-    local query="SELECT COUNT(id) FROM dirs LIMIT 1;";
+    local query="SELECT COUNT(id) FROM ${TABLE_SRC_DIRS} LIMIT 1;";
 
     count="$(sqlite3 "${TMP_DB}" "${query}")";
     [ $? -ne 0 ] && _err "Failed to check if tables are populated in TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
@@ -244,9 +246,9 @@ _dbInsertSrcNames() {
     local query;
 
     for name in "${SRC_NAMES[@]}"; do
-        query="INSERT INTO dirs (name) VALUES ('${name}');";
+        query="INSERT INTO ${TABLE_SRC_DIRS} (name) VALUES ('${name}');";
         sqlite3 "${TMP_DB}" "${query}";
-        [ $? -ne 0 ] && _err "Failed to insert name into dirs table of TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  name: '${name}'\n  query: '${query}'";
+        [ $? -ne 0 ] && _err "Failed to insert name into ${TABLE_SRC_DIRS} table of TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  name: '${name}'\n  query: '${query}'";
     done;
 };
 
@@ -305,7 +307,7 @@ _dbUpdateSrcSize() {
 
     local name="${1}";
     local size="${2}";
-    local query="UPDATE dirs SET size = ${size} WHERE name = '${name}';";
+    local query="UPDATE ${TABLE_SRC_DIRS} SET size = ${size} WHERE name = '${name}';";
 
     sqlite3 "${TMP_DB}" "${query}";
     [ $? -ne 0 ] && _err "Failed to update size in TMP_DB.\n  name: '${name}'\n  size: '${size}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
@@ -315,7 +317,7 @@ _dbUpdateSrcSize() {
 
 _setSizeTotal() {
 
-    local query="SELECT SUM(size) FROM dirs;";
+    local query="SELECT SUM(size) FROM ${TABLE_SRC_DIRS};";
 
     SRC_SIZE_TOTAL="$(sqlite3 "${TMP_DB}" "${query}")";
     [ $? -ne 0 ] && _err "Failed to get size total from TMP_DB.\n  SRC_SIZE_TOTAL: '${SRC_SIZE_TOTAL}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
@@ -326,7 +328,7 @@ _setSizeTotal() {
 
 _setSizeDone() {
 
-    local query="SELECT SUM(size) FROM dirs WHERE pulled = 1 OR pull = 0;";
+    local query="SELECT SUM(size) FROM ${TABLE_SRC_DIRS} WHERE pulled = 1 OR pull = 0;";
 
     SRC_SIZE_PULLED="$(sqlite3 "${TMP_DB}" "${query}")";
     [ $? -ne 0 ] && _err "Failed to get size done from TMP_DB.\n  SRC_SIZE_PULLED: '${SRC_SIZE_PULLED}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
@@ -338,7 +340,7 @@ _setSizeDone() {
 
 _fetchDirs() {
 
-    local query="SELECT name FROM dirs WHERE pulled = 0 AND pull = 1 ORDER BY sort ASC;";
+    local query="SELECT name FROM ${TABLE_SRC_DIRS} WHERE pulled = 0 AND pull = 1 ORDER BY sort ASC;";
 
     IFS=$'\r\n' read -d '' -r -a SRC_NAMES < <(sqlite3 "${TMP_DB}" "${query}");
     [ -z "${SRC_NAMES[*]}" ] && _err "Failed to populate SRC_NAMES array from TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
@@ -378,7 +380,7 @@ _pull() {
 _pulled() {
 
     local name="${1}";
-    local query="UPDATE dirs SET pulled = 1 WHERE name = '${name}';";
+    local query="UPDATE ${TABLE_SRC_DIRS} SET pulled = 1 WHERE name = '${name}';";
 
     sqlite3 "${TMP_DB}" "${query}";
     [ $? -ne 0 ] && _err "Failed to mark row as pulled in TMP_DB.\n  name: '${name}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
@@ -389,7 +391,7 @@ _pulled() {
 _skipped() {
 
     local name="${1}";
-    local query="UPDATE dirs SET skipped = 1, sort = 0 WHERE name = '${name}';";
+    local query="UPDATE ${TABLE_SRC_DIRS} SET skipped = 1, sort = 0 WHERE name = '${name}';";
 
     sqlite3 "${TMP_DB}" "${query}";
     [ $? -ne 0 ] && _err "Failed to mark row as skipped in TMP_DB.\n  name: '${name}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
@@ -400,7 +402,7 @@ _skipped() {
 _disable() {
 
     local name="${1}";
-    local query="UPDATE dirs SET pull = 0 WHERE name = '${name}';";
+    local query="UPDATE ${TABLE_SRC_DIRS} SET pull = 0 WHERE name = '${name}';";
 
     sqlite3 "${TMP_DB}" "${query}";
     [ $? -ne 0 ] && _err "Failed to mark row as not to be pulled in TMP_DB.\n  name: '${name}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
@@ -411,7 +413,7 @@ _disable() {
 _updateSizeDone() {
 
     local name="${1}";
-    local query="SELECT size FROM dirs WHERE name = '${name}';";
+    local query="SELECT size FROM ${TABLE_SRC_DIRS} WHERE name = '${name}';";
     local size;
 
     size="$(sqlite3 "${TMP_DB}" "${query}")";
@@ -476,7 +478,7 @@ _cleanUp() {
 
 _fetchNonPulled() {
 
-    local query="SELECT name FROM dirs WHERE pulled = 0;";
+    local query="SELECT name FROM ${TABLE_SRC_DIRS} WHERE pulled = 0;";
 
     sqlite3 "${TMP_DB}" "${query}";
     [ $? -ne 0 ] && _err "Failed to fetch non-pulled rows from TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
