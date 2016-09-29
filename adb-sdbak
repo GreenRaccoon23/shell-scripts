@@ -139,6 +139,30 @@ _connect() {
     adb wait-for-device;
 };
 
+_dbCreate() {
+
+    [ -e "${TMP_DB}" ] && _dbTablesExist && return 0;
+
+    _c green "echo Creating database...";
+
+    local query="
+        CREATE TABLE dirs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name VARCHAR(255) NOT NULL DEFAULT '',
+            size BIGINT NOT NULL DEFAULT 0,
+            pull TINYINT NOT NULL DEFAULT 1,
+            pulled TINYINT NOT NULL DEFAULT 0,
+            skipped TINYINT NOT NULL DEFAULT 0,
+            sort MEDIUMINT NOT NULL DEFAULT 1,
+
+            UNIQUE (name) ON CONFLICT REPLACE
+        )
+    ;";
+
+    sqlite3 "${TMP_DB}" "${query}";
+    [ $? -ne 0 ] && _err "Failed to create database.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+};
+
 _main() {
 
     _dbPopulate || exit $?;
@@ -162,30 +186,6 @@ _main() {
     _cleanUp;
 
     echo "${DST_PARENT}";
-};
-
-_dbCreate() {
-
-    [ -e "${TMP_DB}" ] && _dbTablesExist && return 0;
-
-    _c green "echo Creating database...";
-
-    local query="
-        CREATE TABLE dirs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name VARCHAR(255) NOT NULL DEFAULT '',
-            size BIGINT NOT NULL DEFAULT 0,
-            pull TINYINT NOT NULL DEFAULT 1,
-            pulled TINYINT NOT NULL DEFAULT 0,
-            skipped TINYINT NOT NULL DEFAULT 0,
-            sort MEDIUMINT NOT NULL DEFAULT 1,
-
-            UNIQUE (name) ON CONFLICT REPLACE
-        )
-    ;";
-
-    sqlite3 "${TMP_DB}" "${query}";
-    [ $? -ne 0 ] && _err "Failed to create database.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
 };
 
 _dbTablesExist() {
