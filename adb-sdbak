@@ -103,14 +103,14 @@ _getopts() {
 
     # Set string options.
     [ -n "${Strings[0]}" ] &&
-        SRC_PARENT="$(_fmtDir "${Strings[0]}")";
+        SRC_PARENT="$(_trimEndSlash "${Strings[0]}")";
     [ -n "${Strings[1]}" ] &&
-        DST_PARENT="$(_fmtDir "${Strings[1]}")";
+        DST_PARENT="$(_trimEndSlash "${Strings[1]}")";
     mkdir -p "${DST_PARENT}";
 };
 
 # Remove a trailing '/' from a string if it exists.
-_fmtDir() {
+_trimEndSlash() {
     local d="$*";
     if [ "${d: -1}" = "/" ]; then
         echo "${d:: -1}";
