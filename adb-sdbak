@@ -3,6 +3,7 @@ shopt -s extglob
 
 declare -r CMD_PULL="adb-pull";
 declare -r CMD_RM="gvfs-trash";
+declare -r BUSYBOX="/su/xbin";
 
 declare -r SCRIPT_PATH="$0";
 declare -r SCRIPT_NAME="${SCRIPT_PATH##*/}";
@@ -219,8 +220,8 @@ _retrieveDirs() {
 
     _c green "echo Retrieving directories...";
 
-    echo " " adb shell \"su -c /su/xbin/ls --color=never -A1 ${SRC_PARENT}/\" '>' \"${TMP_FILE_DIRS}\";
-    adb shell "su -c /su/xbin/ls --color=never -A1 ${SRC_PARENT}/" > "${TMP_FILE_DIRS}";
+    echo " " adb shell \"su -c ${BUSYBOX}/ls --color=never -A1 ${SRC_PARENT}/\" '>' \"${TMP_FILE_DIRS}\";
+    adb shell "su -c ${BUSYBOX}/ls --color=never -A1 ${SRC_PARENT}/" > "${TMP_FILE_DIRS}";
 };
 
 _setDirs() {
