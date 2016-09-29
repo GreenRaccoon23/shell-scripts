@@ -179,11 +179,11 @@ _main() {
     # _choose; #todo: do this?
 
     _c green "echo Fetching list of directories to pull...";
-    _dbFetchSrcNames;
+    _dbFetchNames;
 
     _q pushd "${DST_PARENT}";
     _c green "echo Starting backup";
-    _pullSrcDirs;
+    _pullDirs;
     _q popd;
 
     _cleanUp;
@@ -195,8 +195,8 @@ _dbPopulate() {
 
     _dbPopulated && return 0;
 
-    _pullAndInsertSrcNames;
-    _pullAndUpdateSrcSizes;
+    _pullAndInsertNames;
+    _pullAndUpdateSizes;
 };
 
 _dbPopulated() {
@@ -211,16 +211,16 @@ _dbPopulated() {
     return 0;
 };
 
-_pullAndInsertSrcNames() {
+_pullAndInsertNames() {
 
-    _pullSrcNames;
+    _pullNames;
     _setSrcNames;
-    _dbInsertSrcNames;
+    _dbInsertNames;
 };
 
 # Store the target directories into an array
 # and save them in a temporary file.
-_pullSrcNames() {
+_pullNames() {
 
     [ -e "${TMP_FILE_DIRS}" ] && return 0;
 
@@ -238,7 +238,7 @@ _setSrcNames() {
     [ -z "${SRC_NAMES[*]}" ] && _err "Failed to populate SRC_NAMES array from TMP_FILE_DIRS.\n  TMP_FILE_DIRS: '${TMP_FILE_DIRS}'";
 };
 
-_dbInsertSrcNames() {
+_dbInsertNames() {
 
     _c green "echo Inserting directories into database...";
 
@@ -252,7 +252,7 @@ _dbInsertSrcNames() {
     done;
 };
 
-_pullAndUpdateSrcSizes() {
+_pullAndUpdateSizes() {
 
     [ -z "${SRC_NAMES}" ] && _err "Code err! SRC_NAMES array is empty.\n  SRC_NAMES: '${SRC_NAMES}'";
 
@@ -269,7 +269,7 @@ _pullAndUpdateSrcSizes() {
             size=0;
         fi;
 
-        _dbUpdateSrcSize "${name}" "${size}";
+        _dbUpdateSize "${name}" "${size}";
     done;
     # exit; #delete
 };
@@ -302,7 +302,7 @@ _adbDirSize() {
     echo "${size}";
 };
 
-_dbUpdateSrcSize() {
+_dbUpdateSize() {
 
     local name="${1}";
     local size="${2}";
@@ -337,7 +337,7 @@ _setSrcSizePulled() {
     return 0;
 };
 
-_dbFetchSrcNames() {
+_dbFetchNames() {
 
     local query="SELECT name FROM ${TABLE_SRC_DIRS} WHERE pulled = 0 AND pull = 1 ORDER BY sort ASC;";
 
@@ -346,29 +346,29 @@ _dbFetchSrcNames() {
 };
 
 # Pull each file from the device.
-_pullSrcDirs() {
+_pullDirs() {
     local name;
     for name in "${SRC_NAMES[@]}"; do
-        _pullSrcDir "${name}";
+        _pullDir "${name}";
         _c blue "echo Progress: ${SRC_SIZE_PULLED} KB / ${SRC_SIZE_TOTAL} KB $(_percentDone)%";
     done;
 };
 
-_pullSrcDir() {
+_pullDir() {
 
     local name="${*}";
 
     if _c green "echo -n ==\> Pull \\\"${name}\\\"?" && _Yn 3; then #yes
         "${CMD_PULL}" "${SRC_PARENT}/${name}" &&
-            _pulled "${name}" &&
+            _dbPulled "${name}" &&
             _updateSizeDone "${name}";
 
     elif _c green "echo -n ==\> Remove \\\"${name}\\\" from backup list?" && _yN 30; then #yes
-        _disable "${name}" &&
+        _dbDisable "${name}" &&
             _updateSizeDone "${name}";
 
     else
-        _skipped "${name}";
+        _dbSkipped "${name}";
             _updateSizeDone "${name}";
 
     fi;
@@ -376,7 +376,7 @@ _pullSrcDir() {
     return $?;
 };
 
-_pulled() {
+_dbPulled() {
 
     local name="${1}";
     local query="UPDATE ${TABLE_SRC_DIRS} SET pulled = 1 WHERE name = '${name}';";
@@ -387,7 +387,7 @@ _pulled() {
     return 0;
 };
 
-_skipped() {
+_dbSkipped() {
 
     local name="${1}";
     local query="UPDATE ${TABLE_SRC_DIRS} SET skipped = 1, sort = 0 WHERE name = '${name}';";
@@ -398,7 +398,7 @@ _skipped() {
     return 0;
 };
 
-_disable() {
+_dbDisable() {
 
     local name="${1}";
     local query="UPDATE ${TABLE_SRC_DIRS} SET pull = 0 WHERE name = '${name}';";
@@ -461,7 +461,7 @@ _cleanUp() {
 
     echo;
     echo "Did not pull:";
-    _fetchNonPulled;
+    _dbFetchNonPulled;
 
     if (_c green "echo -n ==\> Pull them now?" && _yN 10); then #yes
         "$0";
@@ -475,7 +475,7 @@ _cleanUp() {
     fi;
 };
 
-_fetchNonPulled() {
+_dbFetchNonPulled() {
 
     local query="SELECT name FROM ${TABLE_SRC_DIRS} WHERE pulled = 0;";
 
