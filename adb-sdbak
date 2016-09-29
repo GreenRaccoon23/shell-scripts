@@ -34,7 +34,7 @@ _help() {
     cat << EOH >&2
 ${SCRIPT_NAME}
 DESCRIPTION:
-  Pull an Android devices ${SRC} contents to ${DST}.
+  Pull sdcard contents from an Android device.
 USAGE:
   ${SCRIPT_NAME} [OPTIONS] [<remote-file-to-pull>] [<local-directory-to-save>]
 OPTIONS:
