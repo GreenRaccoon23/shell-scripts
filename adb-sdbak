@@ -18,9 +18,9 @@ declare DO_FORCE;
 
 # Set string options.
 declare SRC_PARENT;
-declare DST;
+declare DST_PARENT;
 SRC_PARENT="/sdcard";
-DST="${HOME}/tmp/$(basename ${SRC_PARENT})_$(date +%Y-%m-%d)";
+DST_PARENT="${HOME}/tmp/$(basename ${SRC_PARENT})_$(date +%Y-%m-%d)";
 
 declare -a SRC_DIRS;
 declare SIZE_TOTAL=0;
@@ -46,7 +46,7 @@ OPTIONS:
     Force redo a a full backup, even if a previous one did not complete.
     CAUTION: Any existing files will be overwritten.
 DEFAULT:
-  ${SCRIPT_NAME} -r ${SRC_PARENT} ${DST}
+  ${SCRIPT_NAME} -r ${SRC_PARENT} ${DST_PARENT}
 NOTE:
   Requires that the Bash script "${CMD_PULL}" is in the '\$PATH'.
   (E.g., place "${SCRIPT_NAME}" in "${HOME}/bin/" and 
@@ -105,8 +105,8 @@ _getopts() {
     [ -n "${Strings[0]}" ] &&
         SRC_PARENT="$(_fmtDir "${Strings[0]}")";
     [ -n "${Strings[1]}" ] &&
-        DST="$(_fmtDir "${Strings[1]}")";
-    mkdir -p "${DST}";
+        DST_PARENT="$(_fmtDir "${Strings[1]}")";
+    mkdir -p "${DST_PARENT}";
 };
 
 # Remove a trailing '/' from a string if it exists.
@@ -154,14 +154,14 @@ _main() {
     _c green "echo Fetching list of directories to pull...";
     _fetchDirs;
 
-    _q pushd "${DST}";
+    _q pushd "${DST_PARENT}";
     _c green "echo Starting backup";
     _backup;
     _q popd;
 
     _cleanUp;
 
-    echo "${DST}";
+    echo "${DST_PARENT}";
 };
 
 _dbCreate() {
