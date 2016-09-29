@@ -193,10 +193,7 @@ _dbPopulate() {
 
     _dbPopulated && return 0;
 
-    _pullDstNames;
-    _setDirs;
-    _dbInsertDirs;
-
+    _pullAndInsertDstNames;
     _pullAndUpdateDstSizes;
 };
 
@@ -210,6 +207,13 @@ _dbPopulated() {
 
     [ "${count}" = "0" ] && return 1;
     return 0;
+};
+
+_pullAndInsertDstNames() {
+
+    _pullDstNames;
+    _setDirs;
+    _dbInsertDirs;
 };
 
 # Store the target directories into an array
