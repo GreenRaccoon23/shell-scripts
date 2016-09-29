@@ -211,14 +211,14 @@ _dbPopulated() {
 
 _pullAndInsertSrcNames() {
 
-    _pullDstNames;
+    _pullSrcNames;
     _setSrcNames;
     _dbInsertNames;
 };
 
 # Store the target directories into an array
 # and save them in a temporary file.
-_pullDstNames() {
+_pullSrcNames() {
 
     [ -e "${TMP_FILE_DIRS}" ] && return 0;
 
