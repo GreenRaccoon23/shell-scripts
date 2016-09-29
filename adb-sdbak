@@ -129,7 +129,7 @@ _connect() {
 
 _dbCreate() {
 
-    [ -e "${TMP_DB}" ] && _dbTablesExist && return 0;
+    [ -e "${TMP_DB}" ] && _dbTableExists && return 0;
 
     _c green "echo Creating database...";
 
@@ -151,7 +151,7 @@ _dbCreate() {
     [ $? -ne 0 ] && _err "Failed to create database.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
 };
 
-_dbTablesExist() {
+_dbTableExists() {
 
     local name;
     local query="SELECT name FROM sqlite_master WHERE type='table' AND name='dirs' LIMIT 1;";
