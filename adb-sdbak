@@ -33,7 +33,7 @@ _help() {
     cat << EOH >&2
 ${SCRIPT_NAME}
 DESCRIPTION:
-  Pull sdcard contents from an Android device.
+  Pull ${SRC_PARENT} contents from an Android device.
 USAGE:
   ${SCRIPT_NAME} [OPTIONS] [<remote-file-to-pull>] [<local-directory-to-save>]
 OPTIONS:
@@ -274,7 +274,7 @@ _pullAndUpdateSrcSizes() {
 
 _adbDirSize() {
 
-    local name="/sdcard/${1}";
+    local name="/${SRC_PARENT}/${1}";
 
     local tab;
     tab="$(echo -e "\t")";
