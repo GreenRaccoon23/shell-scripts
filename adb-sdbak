@@ -18,7 +18,7 @@ declare -r TABLE_SRC_DIRS_SCHEMA="
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name VARCHAR(255) NOT NULL DEFAULT '',
         size BIGINT NOT NULL DEFAULT 0,
-        pull TINYINT NOT NULL DEFAULT 1,
+        pull TINYINT NOT NULL DEFAULT 0,
         pulled TINYINT NOT NULL DEFAULT 0,
         skipped TINYINT NOT NULL DEFAULT 0,
         sort MEDIUMINT NOT NULL DEFAULT 1,
@@ -40,6 +40,8 @@ declare -a SRC_INFOS;
 declare -a SRC_NAMES;
 declare SRC_SIZE_TOTAL=0;
 declare SRC_SIZE_PULLED=0;
+
+declare SELECTION;
 
 # Print help and exit.
 _help() {
@@ -173,6 +175,7 @@ _main() {
     _dbPopulate || exit $?;
 
     _showSrcDirs || exit $?;
+    _selectSrcDirs || exit $?;
 
     _c green "echo Counting total size of directories...";
     _setSrcSizeTotal || exit $?;
@@ -267,6 +270,66 @@ _printInfos() {
 
         printf '%s\n' "${name}";
     done;
+};
+
+_selectSrcDirs() {
+
+    read -p "Enter a selection (default=all): " SELECTION;
+
+    if [ -z "${SELECTION}" ]; then
+        _dbEnableAll;
+    else
+        _enableSelection;
+    fi;
+
+    return $?;
+};
+
+_enableSelection() {
+
+    local -a selectionGroups;
+    IFS=',' read -ra selectionGroups <<< "${SELECTION}";
+
+    local group;
+    local -a range;
+    local min;
+    local max;
+    local -i idd;
+
+    for group in "${selectionGroups[@]}"; do
+
+        IFS='-' read -ra range <<< "${group}";
+        min="${range[0]}";
+        max="${range[1]}";
+
+        for idd in $(seq ${min} ${max}); do
+            _dbEnable "${idd}";
+        done;
+
+    done;
+
+    return $?;
+};
+
+_dbEnableAll() {
+
+    local query="UPDATE ${TABLE_SRC_DIRS} SET pull = 1;";
+
+    sqlite3 "${TMP_DB}" "${query}";
+    [ $? -ne 0 ] && _err "Failed to mark all rows as to be pulled in TMP_DB.\n  '\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+
+    return 0;
+};
+
+_dbEnable() {
+
+    local idd="${1}";
+    local query="UPDATE ${TABLE_SRC_DIRS} SET pull = 1 WHERE id = '${idd}';";
+
+    sqlite3 "${TMP_DB}" "${query}";
+    [ $? -ne 0 ] && _err "Failed to mark row as to be pulled in TMP_DB.\n  idd: '${idd}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+
+    return 0;
 };
 
 _pullAndInsertNames() {
