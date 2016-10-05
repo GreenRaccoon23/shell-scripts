@@ -11,8 +11,9 @@ _main() {
 
     _q pushd "/etc/pacman.d";
 
-    [ -e "${FILE}" ] ||
-        exit 1;
+    [ -e "${FILE}" ] || exit 1;
+
+    _showCurrent;
 
     echo "Backing up current mirrorlist...";
     _bakPacOld;
@@ -36,6 +37,11 @@ _runAsRoot() {
     sudo "$0";
     exit $?;
 }
+
+_showCurrent() {
+    echo "Current mirrorlist:";
+    cat "${FILE}";
+};
 
 # Backup the current mirrorlist.
 # Find an unused filename for the new backup.
