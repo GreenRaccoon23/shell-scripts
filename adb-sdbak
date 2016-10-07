@@ -404,6 +404,7 @@ _enableSelection() {
         IFS='-' read -ra range <<< "${group}";
         min="${range[0]}";
         max="${range[1]}";
+        [ -z "${max}" ] && max="${min}";
 
         for idd in $(seq ${min} ${max}); do
             # [ -n "${SRC_IDS_AVAILABLE[$idd]}" ] && echo "    idd: ${idd}";
