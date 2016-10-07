@@ -600,7 +600,7 @@ _percentDone() {
 # Manage temporary files and report any final errors.
 _cleanUp() {
 
-    [-e "${TMP_FILE_DIRS}" ] && "${CMD_RM}" "${TMP_FILE_DIRS}";
+    [ -e "${TMP_FILE_DIRS}" ] && "${CMD_RM}" "${TMP_FILE_DIRS}";
 
     echo;
     echo "Did not pull:";
