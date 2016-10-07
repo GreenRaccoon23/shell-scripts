@@ -333,7 +333,8 @@ _dbFetchInfos() {
     local query="SELECT id, size, name FROM ${TABLE_SRC_DIRS} WHERE pulled = 0 AND pull = 1 ORDER BY sort ASC;";
 
     IFS=$'\r\n' read -d '' -r -a SRC_INFOS < <(sqlite3 -header "${TMP_DB}" "${query}");
-    [ -z "${SRC_INFOS[*]}" ] && _err "Failed to populate SRC_INFOS array from TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'\n  SRC_INFOS: '${SRC_INFOS[*]}'";
+    # [ -z "${SRC_INFOS[*]}" ] && _err "Failed to populate SRC_INFOS array from TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'\n  SRC_INFOS: '${SRC_INFOS[*]}'";
+    [ -z "${SRC_INFOS[*]}" ] && _err "All directories have been pulled already.";
 };
 
 _printInfos() {
