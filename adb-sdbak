@@ -37,6 +37,7 @@ SRC_PARENT="/sdcard";
 DST_PARENT="${HOME}/tmp/$(basename ${SRC_PARENT})_$(date +%Y-%m-%d)";
 
 declare -a SRC_INFOS;
+declare -A SRC_IDS_AVAILABLE;
 declare -a SRC_NAMES;
 declare SRC_SIZE_TOTAL=0;
 declare SRC_SIZE_PULLED=0;
@@ -379,15 +380,14 @@ _selectSrcDirs() {
 
     read -p "Enter a selection (default=all): " SELECTION;
 
-    if [ -n "${SELECTION}" ]; then
-        _enableSelection;
-    fi;
+    [ -n "${SELECTION}" ] && _enableSelection;
 
     return $?;
 };
 
 _enableSelection() {
 
+    _setSrcIdsAvailable;
     _dbDisableAll || exit $?;
 
     local -a selectionGroups;
@@ -406,12 +406,27 @@ _enableSelection() {
         max="${range[1]}";
 
         for idd in $(seq ${min} ${max}); do
-            _dbEnable "${idd}";
+            # [ -n "${SRC_IDS_AVAILABLE[$idd]}" ] && echo "    idd: ${idd}";
+            [ -n "${SRC_IDS_AVAILABLE[$idd]}" ] && _dbEnable "${idd}";
         done;
 
     done;
 
     return $?;
+};
+
+# Make a hash table of id's which have not been disabled in the database.
+_setSrcIdsAvailable() {
+
+    local row;
+    local -a cells;
+    local idd;
+
+    for row in "${SRC_INFOS[@]}"; do
+        IFS='|' read -ra cells <<< "${row}";
+        idd="${cells[0]}";
+        SRC_IDS_AVAILABLE["${idd}"]=1;
+    done;
 };
 
 _dbDisableAll() {
