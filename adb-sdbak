@@ -606,12 +606,12 @@ _cleanUp() {
     echo "Did not pull:";
     _dbFetchNonPulled;
 
-    if (_c green "echo -n ==\> Pull them now?" && _yN 10); then #yes
+    if (_c green "echo -n ==\> Pull them now?" && _yN); then #yes
         "$0";
         exit $?;
     fi;
 
-    if (_c green "echo -n ==\> Remember to pull these files the next time this script is run?" && _Yn 10); then #yes
+    if (_c green "echo -n ==\> Remember to pull these files the next time this script is run?" && _Yn); then #yes
         return 0;
     else
         [-e "${TMP_DB}" ] && "${CMD_RM}" "${TMP_DB}";
