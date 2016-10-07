@@ -381,7 +381,7 @@ _selectSrcDirs() {
 
     read -p "Enter a selection (default=all): " SELECTION;
 
-    [ -n "${SELECTION}" ] && return 0;
+    [ -z "${SELECTION}" ] && return 0;
 
     _enableSelection;
 
