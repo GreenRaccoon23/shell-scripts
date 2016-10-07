@@ -66,7 +66,7 @@ DEFAULT:
   ${SCRIPT_NAME} -r ${SRC_PARENT} ${DST_PARENT}
 NOTE:
   Requires that the Bash script "${CMD_PULL}" is in the '\$PATH'.
-  (E.g., place "${SCRIPT_NAME}" in "${HOME}/bin/" and 
+  (E.g., place "${SCRIPT_NAME}" in "${HOME}/bin/" and
     add 'export PATH=\$PATH:\$HOME/bin' to '~/.bashrc'.)
 EOH
 
@@ -86,7 +86,7 @@ _getopts() {
     local flag;
     for ((i=1; i<=$#; i++)); do
         eval flag="\$$i";
-        case "${flag}" in 
+        case "${flag}" in
             *(-)[hH]*([eE][lL][pP]) )
                 _help;
                 ;;
@@ -110,7 +110,7 @@ _getopts() {
                 ;;
         esac;
     done;
-    
+
     # Set bool options.
     DO_FORCE="${Bools[1]}";
     if [ -n "${DO_FORCE}" ]; then
@@ -229,7 +229,7 @@ _dbFetchInfos() {
     local query="SELECT id, size, name FROM ${TABLE_SRC_DIRS} WHERE pulled = 0 AND pull = 1 ORDER BY sort ASC;";
 
     IFS=$'\r\n' read -d '' -r -a SRC_INFOS < <(sqlite3 -header "${TMP_DB}" "${query}");
-    [ -z "${SRC_INFOS[*]}" ] && _err "Failed to populate SRC_INFOS array from TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+    [ -z "${SRC_INFOS[*]}" ] && _err "Failed to populate SRC_INFOS array from TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'\n  SRC_INFOS: '${SRC_INFOS[*]}'";
 };
 
 _printInfos() {
@@ -610,23 +610,23 @@ _dbFetchNonPulled() {
 # Optionally, run a command afterwards, and once the command returns,
 #   reset the console color to normal.
 _c() {
-    local -A Codes=( 
-        ["black"]="0" 
-        ["red"]="1" 
-        ["green"]="2" 
-        ["yellow"]="3" 
-        ["blue"]="4" 
-        ["magenta"]="5" 
-        ["cyan"]="6" 
-        ["white"]="7" 
-        ["bk"]="0" 
-        ["r"]="1" 
-        ["g"]="2" 
-        ["y"]="3" 
-        ["bu"]="4" 
-        ["m"]="5" 
-        ["c"]="6" 
-        ["w"]="7" 
+    local -A Codes=(
+        ["black"]="0"
+        ["red"]="1"
+        ["green"]="2"
+        ["yellow"]="3"
+        ["blue"]="4"
+        ["magenta"]="5"
+        ["cyan"]="6"
+        ["white"]="7"
+        ["bk"]="0"
+        ["r"]="1"
+        ["g"]="2"
+        ["y"]="3"
+        ["bu"]="4"
+        ["m"]="5"
+        ["c"]="6"
+        ["w"]="7"
     );
 
     local k c;
@@ -637,7 +637,7 @@ _c() {
 
     [ -n "${c}" ] &&
         tput setaf "${c}";
-    
+
     [ -z "${*:2}" ] &&
         return;
     eval "${@:2}";
