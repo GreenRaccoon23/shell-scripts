@@ -76,7 +76,7 @@ _init() {
 # Analyze user arguments.
 _getopts() {
     # Declare bool options.
-    #local -a Bools=( 
+    #local -a Bools=(
     #    ""
     #);
 
@@ -85,7 +85,7 @@ _getopts() {
     local flag;
     for ((i=1; i<=$#; i++)); do
         eval flag="\$$i";
-        case "${flag}" in 
+        case "${flag}" in
             *(-)[hH] | *(-)[hH][eE][lL][pP] )
                 _help 0;
                 ;;
@@ -141,7 +141,7 @@ _main() {
 
     # Run `adb pull`.
     _pull;
-    if (($? != 0)); then 
+    if (($? != 0)); then
         _retry "Failed to pull \"${SRC}\". Retrying...";
         return $?;
     fi;
@@ -149,11 +149,11 @@ _main() {
     # Compare the md5sum of the pulled file with that of the original one.
     # If they do not match, remove the pulled file and rerun this script.
     _verifyChecksums;
-    if (($? != 0)); then 
+    if (($? != 0)); then
         _retry "${SRC} transferred incorrectly." "  Re-pulling \"${SRC}\"...";
         return $?;
     fi;
-    
+
     # If the remote file was tarred earlier,
     #   remove the temporary tar file on the Android device
     #   and untar the pulled one.
@@ -269,7 +269,7 @@ _verifyChecksums() {
 # Extract the pulled tar archive.
 _untarSrcDst() {
     _bak "${BASE}";
-    
+
     echo "Removing remote temporary tar archive '${SRC_TAR}...";
     echo "  adb shell rm \"${SRC_TAR}\"";
     adb shell "rm \"${SRC_TAR}\"";
@@ -277,30 +277,30 @@ _untarSrcDst() {
     echo "Extracting local temporary tar archive '${DST_TAR}...";
     echo "  tar -xf \"${DST_TAR}\"";
     tar -xf "${DST_TAR}" &&
-        rm "${DST_TAR}"; 
+        rm "${DST_TAR}";
 };
 
 # Set console color.
 # Optionally, run a command afterwards, and once the command returns,
 #   reset the console color to normal.
 _c() {
-    local -A Codes=( 
-        ["black"]="0" 
-        ["red"]="1" 
-        ["green"]="2" 
-        ["yellow"]="3" 
-        ["blue"]="4" 
-        ["magenta"]="5" 
-        ["cyan"]="6" 
-        ["white"]="7" 
-        ["bk"]="0" 
-        ["r"]="1" 
-        ["g"]="2" 
-        ["y"]="3" 
-        ["bu"]="4" 
-        ["m"]="5" 
-        ["c"]="6" 
-        ["w"]="7" 
+    local -A Codes=(
+        ["black"]="0"
+        ["red"]="1"
+        ["green"]="2"
+        ["yellow"]="3"
+        ["blue"]="4"
+        ["magenta"]="5"
+        ["cyan"]="6"
+        ["white"]="7"
+        ["bk"]="0"
+        ["r"]="1"
+        ["g"]="2"
+        ["y"]="3"
+        ["bu"]="4"
+        ["m"]="5"
+        ["c"]="6"
+        ["w"]="7"
     );
 
     local k c;
@@ -311,7 +311,7 @@ _c() {
 
     [ -n "${c}" ] &&
         tput setaf "${c}";
-    
+
     [ -z "${*:2}" ] &&
         return;
     eval "${@:2}";
