@@ -456,7 +456,7 @@ _dbEnable() {
 
 _setSrcSizeTotal() {
 
-    local query="SELECT SUM(size) FROM ${TABLE_SRC_DIRS};";
+    local query="SELECT SUM(size) FROM ${TABLE_SRC_DIRS} WHERE pull = 1;";
 
     SRC_SIZE_TOTAL="$(sqlite3 "${TMP_DB}" "${query}")";
     [ $? -ne 0 ] && _err "Failed to get size total from TMP_DB.\n  SRC_SIZE_TOTAL: '${SRC_SIZE_TOTAL}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
@@ -467,7 +467,7 @@ _setSrcSizeTotal() {
 
 _setSrcSizePulled() {
 
-    local query="SELECT SUM(size) FROM ${TABLE_SRC_DIRS} WHERE pulled = 1 OR pull = 0;";
+    local query="SELECT SUM(size) FROM ${TABLE_SRC_DIRS} WHERE pulled = 1;";
 
     SRC_SIZE_PULLED="$(sqlite3 "${TMP_DB}" "${query}")";
     [ $? -ne 0 ] && _err "Failed to get size done from TMP_DB.\n  SRC_SIZE_PULLED: '${SRC_SIZE_PULLED}'\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
