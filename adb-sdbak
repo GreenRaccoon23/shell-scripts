@@ -483,6 +483,8 @@ _dbFetchNames() {
 
     IFS=$'\r\n' read -d '' -r -a SRC_NAMES < <(sqlite3 "${TMP_DB}" "${query}");
     [ -z "${SRC_NAMES[*]}" ] && _err "Failed to populate SRC_NAMES array from TMP_DB.\n  TMP_DB: '${TMP_DB}'\n  query: '${query}'";
+
+    return 0;
 };
 
 # Pull each file from the device.
