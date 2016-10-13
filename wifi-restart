@@ -1,0 +1,9 @@
+#!/bin/bash
+
+_restart() {
+    nmcli networking off;
+    sleep 0.1s;
+    nmcli networking on;
+};
+
+_restart;
