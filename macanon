@@ -6,12 +6,12 @@ _c() {
         tput sgr0;
         return;
     fi;
-    
-    local -A Codes=( 
-        ["black"]="0" ["red"]="1" ["green"]="2" ["yellow"]="3" 
-        ["blue"]="4" ["magenta"]="5" ["cyan"]="6" ["white"]="7" 
-        ["bk"]="0" ["r"]="1" ["g"]="2" ["y"]="3" 
-        ["bu"]="4" ["m"]="5" ["c"]="6" ["w"]="7" 
+
+    local -A Codes=(
+        ["black"]="0" ["red"]="1" ["green"]="2" ["yellow"]="3"
+        ["blue"]="4" ["magenta"]="5" ["cyan"]="6" ["white"]="7"
+        ["bk"]="0" ["r"]="1" ["g"]="2" ["y"]="3"
+        ["bu"]="4" ["m"]="5" ["c"]="6" ["w"]="7"
     );
 
     local k c;
@@ -40,7 +40,7 @@ _line() {
     fi;
 
     printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' =;
-    
+
     if (($# > 0)); then
         _u;
     fi;
@@ -48,8 +48,8 @@ _line() {
 
 _choose() {
     ALL_DEVICES="$(
-        ip link show | 
-        grep "^[0-9]" | 
+        ip link show |
+        grep "^[0-9]" |
         sed -re 's/([0-9].*?):.*/\1/'
     )";
 
@@ -67,8 +67,8 @@ _choose() {
     read -p "" choice;
 
     DEVICE="$(
-        ip link show | 
-        grep "^${choice}" | 
+        ip link show |
+        grep "^${choice}" |
         sed -re 's/...(.*?):.*/\1/'
     )";
     echo "${DEVICE}";
@@ -85,13 +85,18 @@ _findCurr() {
 }
 
 _changeMac() {
+
     sudo ip link set "${DEVICE}" down;
+
     if [[ "${CURR}" == "${PERM}" ]]; then
         sudo macchanger -a "${DEVICE}";
         [ "${PGL}" ] && pglgui &>/dev/null &disown;
     else
         sudo macchanger -p "${DEVICE}";
     fi;
+
+    sleep 0.2s;
+
     sudo ip link set "${DEVICE}" up;
 }
 
