@@ -6,24 +6,24 @@ _c() {
     if (($# < 1)); then
         return;
     fi;
-    
-    local -A Codes=( 
-        ["black"]="0" 
-        ["red"]="1" 
-        ["green"]="2" 
-        ["yellow"]="3" 
-        ["blue"]="4" 
-        ["magenta"]="5" 
-        ["cyan"]="6" 
-        ["white"]="7" 
-        ["bk"]="0" 
-        ["r"]="1" 
-        ["g"]="2" 
-        ["y"]="3" 
-        ["bu"]="4" 
-        ["m"]="5" 
-        ["c"]="6" 
-        ["w"]="7" 
+
+    local -A Codes=(
+        ["black"]="0"
+        ["red"]="1"
+        ["green"]="2"
+        ["yellow"]="3"
+        ["blue"]="4"
+        ["magenta"]="5"
+        ["cyan"]="6"
+        ["white"]="7"
+        ["bk"]="0"
+        ["r"]="1"
+        ["g"]="2"
+        ["y"]="3"
+        ["bu"]="4"
+        ["m"]="5"
+        ["c"]="6"
+        ["w"]="7"
     );
 
     local k c;
@@ -63,5 +63,5 @@ for IMAGE; do
         _u;
         continue;
     fi;
-    svgcleaner-cli "${IMAGE}" "${IMAGE}";
+    svgcleaner "${IMAGE}" "${IMAGE}";
 done;
