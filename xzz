@@ -1,11 +1,11 @@
 #!/bin/bash
 shopt -s extglob
 
-# Read the '_help' function for usage.
+# todo: automatically generate unused filenames
 
 # Print help and exit.
 _help() {
-    local -a Usage=( 
+    local -a Usage=(
         "Usage:"
         "    ${SCRIPT} <file/directory-to-compress>"
         " Or:"
@@ -14,7 +14,7 @@ _help() {
         "    ${SCRIPT} <name-of-archive-to-create> <files/directories-to-compress>..."
         " Or:"
         "    ${SCRIPT} -a <files/archives/directories-to-compress/decompress>..."
-        "        (Equivalent to running this script in a 'for' loop.)" 
+        "        (Equivalent to running this script in a 'for' loop.)"
 
     );
     local m;
@@ -31,7 +31,7 @@ _getopts() {
     fi;
 
     # Declare bool options.
-    local -a Bools=( 
+    local -a Bools=(
         ""
         ""
         ""
@@ -49,7 +49,7 @@ _getopts() {
     local flag;
     for ((i=1;i<=$#;i++)); do
         eval flag="\$$i";
-        case "${flag}" in 
+        case "${flag}" in
             +(-)[hH] | +(-)[hH][eE][lL][pP] )
                 _help;
                 ;;
@@ -67,7 +67,7 @@ _getopts() {
                 ;;
         esac;
     done;
-    
+
     # Set bool options.
     DO_COMPRESS="${Bools[0]}";
     DO_DECOMPRESS="${Bools[1]}";
@@ -88,7 +88,7 @@ _evalopts() {
     if (($# == 0)); then
         _help;
     fi;
-    
+
     if [ "${2}" ]; then
         if ! _isTar "${1}" || _isXz "${1}"; then
             DO_LOOP=0;
@@ -96,7 +96,7 @@ _evalopts() {
             DO_COMPRESS=0;
             DO_TAR_ALL=0;
         fi;
-    
+
     elif _isXz "${1}"; then
         DO_DECOMPRESS=0;
 
@@ -215,12 +215,12 @@ _tar() {
     if _isTar "${file}"; then
         return 0;
     fi;
-    
+
     if [ "${DIR}" ]; then
         file="${file##*${DIR}/}";
         _q pushd "${DIR}";
     fi;
-    
+
     _bak "${file}.tar";
     _evalcho "tar -cf \"${file}.tar\" \"${file}\"";
     _err;
@@ -240,8 +240,8 @@ _tarAll() {
 
     local -a Files=( "$@" );
     Files=( "${Files[@]:1}" );
-    
-    _bak "${tar}"; 
+
+    _bak "${tar}";
 
     local f;
     printf 'tar -cf "%s"' "${tar}";
@@ -271,6 +271,28 @@ _untar() {
     _err;
 }
 
+# todo: use this
+# _unused() {
+#
+#   local path="${1}";
+#   local ext;
+#   local base;
+#   local unused;
+#
+#   ext="$(echo "${path}" | sed -e 's/.*\(\.[a-zA-Z]*\)/\1/g')";
+#   base="$(echo "${path}" | sed -e 's/\(.*\)\.[a-zA-Z]*/\1/g')";
+#
+#   for ((i=1; i < 100; i++)); do
+#     unused="${base}${i}${ext}";
+#     [ ! -e "${unused}" ] && break;
+#   done;
+#
+#   [ -e "${unused}" ] && return 1;
+#
+#   echo "${unused}";
+#   return 1;
+# };
+
 # Compress to an 'xz' archive.
 _xz() {
     if (($# == 0)); then
@@ -291,7 +313,7 @@ _xz() {
         _err;
         file="${file}.tar";
     fi;
-        
+
     if [ "${DIR}" ]; then
         file="${file##*${DIR}/}";
     fi;
@@ -299,7 +321,7 @@ _xz() {
     local cmd="xz -zv -T 0 -e9 \"${file}\"";
     _evalcho "${cmd}";
     _err;
-    
+
     local test="xz -t \"${file}.xz\""
     if ! _evalcho "${test}"; then
         rm "${file}.xz";
