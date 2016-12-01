@@ -219,7 +219,7 @@ _tarSrc() {
 
 # Run `adb pull` to copy the file from the Android device.
 _pull() {
-    echo "Pulling '"${SRC}"'...";
+    echo "Pulling '${SRC}'...";
     _bak "${DST}";
     echo "  adb pull -p -a \"${SRC}\" \"${DST}\"";
     adb pull -p -a "${SRC}" "${DST}";
