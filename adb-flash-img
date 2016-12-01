@@ -39,7 +39,7 @@ _main() {
     _flashImage;
 
     echo "Success!";
-    echo "Manually boot into recovery and install SuperSU";
+    echo "Manually boot into recovery, install SuperSU, and then install kernel (optional)";
 }
 
 # Print help and exit.
@@ -73,7 +73,7 @@ _getopts() {
     local flag;
     for i in $(seq 1 $#); do
         eval flag="\$$i";
-        case "${flag}" in 
+        case "${flag}" in
             *(-)[hH]*([eE][lL][pP]) )
                 _help;
                 ;;
@@ -88,7 +88,7 @@ _getopts() {
                 ;;
         esac;
     done;
-    
+
     # Set bool options.
     DoWipe="${BoolOpts[0]}";
 
@@ -172,7 +172,7 @@ _flashImage() {
     fastboot flash cache cache.img;
     _chkerr "Failed to flash cache";
 
-    # fastboot flash recovery recovery.img    
+    # fastboot flash recovery recovery.img
     if [ -e "${TWRP_IMG}" ]; then
         fastboot flash recovery "${TWRP_IMG}";
     elif [ -e "../${TWRP_IMG}" ]; then
