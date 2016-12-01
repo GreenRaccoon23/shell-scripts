@@ -150,7 +150,7 @@ _rmTmpFiles() {
 
 _dstCreate() {
 
-    _c green "echo Creating destination directory '${DST_PARENT}'...";
+    _c green "echo Creating destination directory \\'${DST_PARENT}\\'...";
 
     mkdir -p "${DST_PARENT}";
 };
