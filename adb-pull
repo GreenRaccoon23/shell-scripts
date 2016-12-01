@@ -133,10 +133,17 @@ _main() {
 
     # Tar the target file if it is a directory
     #   in order to check its md5sum later.
-    if [ "${DO_TAR}" ]; then
-        _tarSrc &&
-            SRC="${SRC_TAR}" &&
-            DST="${DST_TAR}";
+    if [ -n "${DO_TAR}" ]; then
+
+        _tarSrc;
+
+        if (($? != 0)); then
+            _retry "Failed to create tar archive of \"${SRC}\". Retrying...";
+            return $?;
+        fi;
+
+        SRC="${SRC_TAR}";
+        DST="${DST_TAR}";
     fi;
 
     # Run `adb pull`.
@@ -157,7 +164,7 @@ _main() {
     # If the remote file was tarred earlier,
     #   remove the temporary tar file on the Android device
     #   and untar the pulled one.
-    if [ "${DO_TAR}" ]; then
+    if [ -n "${DO_TAR}" ]; then
         _untarSrcDst &&
             SRC="${SRC_ORIG}" &&
             DST="${DST_ORIG}";
@@ -193,10 +200,11 @@ _srcExists() {
 
 # Create a tar archive of the file to pull [if it is a directory].
 _tarSrc() {
+
     echo "Creating tar archive of '${BASE}'...";
 
-    echo "  adb shell 'f=\"${PARENT_DIR}/${BASE_TAR}\"; [ -e \"\${f}\" ] && rm \"\${f}\"'";
-    adb shell "f=\"${PARENT_DIR}/${BASE_TAR}\"; [ -e \"\${f}\" ] && rm \"\${f}\"" || return $?;
+    echo "  adb shell 'f=\"${PARENT_DIR}/${BASE_TAR}\"; if [ -e \"\${f}\" ]; then rm \"\${f}\"; else exit 0; fi;'";
+    adb shell "f=\"${PARENT_DIR}/${BASE_TAR}\"; if [ -e \"\${f}\" ]; then rm \"\${f}\"; else exit 0; fi;" || return $?;
 
     echo "  adb shell 'cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\"'";
     adb shell "cd \"${PARENT_DIR}\" && tar -cf \"${BASE_TAR}\" \"${BASE}\"" || return $?;
@@ -329,6 +337,23 @@ _C() {
 # Reset console color to normal.
 _u() {
     tput sgr0;
+};
+
+_ifErr() {
+    local msg="${1}";
+    [ $? -ne 0 ] && _err "${msg}" $?;
+};
+
+# Exit with status 1 after echoing an error message.
+_err() {
+    local err="$*";
+    [ -z "${err}" ] &&
+        err="An error occurred. Cannot continue.";
+
+    _c red;
+    echo -e "${err}";
+    _u;
+    exit 1;
 };
 
 # Remove an extension from a filename.
