@@ -95,7 +95,7 @@ _changeMac() {
         sudo macchanger -p "${DEVICE}";
     fi;
 
-    sleep 0.2s;
+    sleep 2s;
 
     sudo ip link set "${DEVICE}" up;
 }
