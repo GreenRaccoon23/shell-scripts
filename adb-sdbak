@@ -593,7 +593,7 @@ _cleanUp() {
     if (_c green "echo -n ==\> Remember to pull these files the next time this script is run?" && _Yn); then #yes
         return 0;
     else
-        [-e "${TMP_DB}" ] && "${CMD_RM}" "${TMP_DB}";
+        [ -e "${TMP_DB}" ] && "${CMD_RM}" "${TMP_DB}";
     fi;
 };
 
