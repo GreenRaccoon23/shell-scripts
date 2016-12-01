@@ -5,12 +5,12 @@ declare -r CMD_PULL="adb-pull";
 declare -r CMD_RM="gvfs-trash";
 declare -r BUSYBOX="/su/xbin";
 
-declare -r SCRIPT_PATH="$0";
-declare -r SCRIPT_NAME="${SCRIPT_PATH##*/}";
-declare -r SCRIPT_DIR="$(dirname "$0")";
+declare -r ME="$0";
+declare -r MY_NAME="${ME##*/}";
+declare -r MY_DIR="$(dirname "$0")";
 
-declare -r TMP_DB="${SCRIPT_DIR}/.${SCRIPT_NAME}.tmp.db";
-declare -r TMP_FILE_DIRS="${SCRIPT_DIR}/.${SCRIPT_NAME}_dirs.tmp";
+declare -r TMP_DB="${MY_DIR}/.${MY_NAME}.tmp.db";
+declare -r TMP_FILE_DIRS="${MY_DIR}/.${MY_NAME}_dirs.tmp";
 
 declare -r TABLE_SRC_DIRS="src_dirs";
 declare -r TABLE_SRC_DIRS_SCHEMA="
@@ -46,15 +46,15 @@ declare SELECTION;
 
 # Print help and exit.
 _help() {
-    local bin="${HOME}/bin"
-    local fmt;
-    fmt="$(date +%Y-%m-%d)";
+
+    local -i statusCode="${1}";
+
     cat << EOH >&2
-${SCRIPT_NAME}
+${MY_NAME}
 DESCRIPTION:
   Pull ${SRC_PARENT} contents from an Android device.
 USAGE:
-  ${SCRIPT_NAME} [OPTIONS] [<remote-file-to-pull>] [<local-directory-to-save>]
+  ${MY_NAME} [OPTIONS] [<remote-file-to-pull>] [<local-directory-to-save>]
 OPTIONS:
   r, resume, c, continue [default]
     Resume a backup operation if one did not complete earlier.
@@ -64,16 +64,14 @@ OPTIONS:
     Force redo a a full backup, even if a previous one did not complete.
     CAUTION: Any existing files will be overwritten.
 DEFAULT:
-  ${SCRIPT_NAME} -r ${SRC_PARENT} ${DST_PARENT}
+  ${MY_NAME} -r ${SRC_PARENT} ${DST_PARENT}
 NOTE:
   Requires that the Bash script "${CMD_PULL}" is in the '\$PATH'.
-  (E.g., place "${SCRIPT_NAME}" in "${HOME}/bin/" and
-    add 'export PATH=\$PATH:\$HOME/bin' to '~/.bashrc'.)
+  (E.g., place "${MY_NAME}" in "${MY_DIR}" and
+    add 'export PATH=\$PATH:${MY_DIR}' to '~/.bashrc'.)
 EOH
 
-    [ -n "${1}" ] &&
-        exit "${1}";
-    exit 1;
+    exit "${statusCode}";
 };
 
 # Analyze user arguments.
@@ -107,24 +105,17 @@ _getopts() {
                 Bools[1]=0;
                 ;;
             * )
-                Strings+=( "${flag}" );
+                Strings+=("${flag}");
                 ;;
         esac;
     done;
 
     # Set bool options.
     DO_FORCE="${Bools[1]}";
-    if [ -n "${DO_FORCE}" ]; then
-        [ -e "${TMP_DB}" ] && "${CMD_RM}" "${TMP_DB}";
-        [ -e "${TMP_FILE_DIRS}" ] && "${CMD_RM}" "${TMP_FILE_DIRS}";
-    fi;
 
     # Set string options.
-    [ -n "${Strings[0]}" ] &&
-        SRC_PARENT="$(_trimEndSlash "${Strings[0]}")";
-    [ -n "${Strings[1]}" ] &&
-        DST_PARENT="$(_trimEndSlash "${Strings[1]}")";
-    mkdir -p "${DST_PARENT}";
+    [ -n "${Strings[0]}" ] && SRC_PARENT="$(_trimEndSlash "${Strings[0]}")";
+    [ -n "${Strings[1]}" ] && DST_PARENT="$(_trimEndSlash "${Strings[1]}")";
 };
 
 _init() {
@@ -132,6 +123,10 @@ _init() {
     _getopts "$@";
 
     _connect || exit $?;
+
+    [ -n "${DO_FORCE}" ] && _rmTmpFiles;
+
+    mkdir -p "${DST_PARENT}";
 
     _dbCreate;
 };
@@ -145,6 +140,14 @@ _connect() {
     fi;
     echo "Waiting for Android device to connect...";
     adb wait-for-device;
+};
+
+_rmTmpFiles() {
+
+    _c green "echo Removing temporary files...";
+
+    [ -e "${TMP_DB}" ] && "${CMD_RM}" "${TMP_DB}";
+    [ -e "${TMP_FILE_DIRS}" ] && "${CMD_RM}" "${TMP_FILE_DIRS}";
 };
 
 _dbCreate() {
