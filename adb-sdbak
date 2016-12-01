@@ -125,9 +125,7 @@ _init() {
     _connect || exit $?;
 
     [ -n "${DO_FORCE}" ] && _rmTmpFiles;
-
-    mkdir -p "${DST_PARENT}";
-
+    _dstCreate;
     _dbCreate;
 };
 
@@ -148,6 +146,13 @@ _rmTmpFiles() {
 
     [ -e "${TMP_DB}" ] && "${CMD_RM}" "${TMP_DB}";
     [ -e "${TMP_FILE_DIRS}" ] && "${CMD_RM}" "${TMP_FILE_DIRS}";
+};
+
+_dstCreate() {
+
+    _c green "echo Creating destination directory '${DST_PARENT}'...";
+
+    mkdir -p "${DST_PARENT}";
 };
 
 _dbCreate() {
