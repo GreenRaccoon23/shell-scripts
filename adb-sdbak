@@ -573,37 +573,8 @@ _updateSizeDone() {
 };
 
 _percentDone() {
-
-    local decimal;
-    local percent;
-
-    if [ -z "${SRC_SIZE_PULLED}" ]; then
-        echo "00.00";
-    elif [ "${SRC_SIZE_PULLED}" = "${SRC_SIZE_TOTAL}" ]; then
-        echo "100.00";
-    else
-        decimal=$(bc <<< "scale=4; ${SRC_SIZE_PULLED}/${SRC_SIZE_TOTAL}");
-        percent=$(bc <<< "scale=4; ${decimal}*100");
-        # echo $percent; #delete
-
-        # yeah, this is nonsense. good luck
-        if [ "${percent}" = "0" ]; then
-            echo "00.00";
-
-        elif [ "${percent:0:1}" = "." ]; then
-            echo "00.${percent:1:2}";
-
-        elif [ "${percent:1:1}" = "." ]; then
-            echo "0${percent:0:1}.${percent:2:2}";
-
-        elif [ "${percent:2:1}" = "." ]; then
-            echo "${percent:0:2}.${percent:3:2}";
-
-        else
-            echo "${percent:1:2}.${percent:3:4}";
-        fi;
-    fi;
-}
+    node -p "parseFloat(${SRC_SIZE_PULLED} / ${SRC_SIZE_TOTAL} / 100).toFixed(2)";
+};
 
 # Manage temporary files and report any final errors.
 _cleanUp() {
