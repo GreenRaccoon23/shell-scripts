@@ -4,6 +4,7 @@
 .adb-sdbak_size-done.tmp
 .adb-sdbak_size-total.tmp
 adb-sdbak.js
+adb-secure-settings
 arc/**
 archdroid-gr23
 aur-update
