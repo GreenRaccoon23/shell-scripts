@@ -30,13 +30,13 @@ _main() {
     _q popd;
 
     echo "Success."
-}
+};
 
 _runAsRoot() {
     [ "$(whoami)" = "root" ] && return 0;
     sudo "$0";
     exit $?;
-}
+};
 
 _showCurrent() {
     echo "Current mirrorlist:";
@@ -51,7 +51,7 @@ _bakPacOld() {
 
     _evalcho cp -a "${FILE}" "${bak}" ||
         exit $?;
-}
+};
 
 _genNewBak() {
     local base="${1}";
@@ -64,7 +64,7 @@ _genNewBak() {
         ! [ -e "${bak}" ] && break;
     done;
     echo "${bak}";
-}
+};
 
 # Make a temporary copy of 'mirrorlist.pacnew'
 #   (If it doesn't exist copy 'mirrorlist'.)
@@ -80,7 +80,7 @@ _tmpPac() {
         exit $?;
     sed -i 's/#Server/Server/' "${TMP}" ||
         exit $?;
-}
+};
 
 # Use `rankmirrors` to find the best servers in the temporary file.
 # Write the output to 'mirrorlist'.
@@ -97,15 +97,15 @@ _rankPac() {
 _bakPacNew() {
     _evalcho cp -a "${FILE}" "${BACKUP}" ||
         exit $?;
-}
+};
 
 _q() {
     eval "$@" &>/dev/null;
-}
+};
 
 _evalcho() {
     echo "  $@";
     eval "$@";
-}
+};
 
 _main;
