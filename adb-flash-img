@@ -5,8 +5,9 @@ source lib-exec-opts;
 source lib-input;
 source lib-fmt;
 
-declare -r SCRIPT_PATH="$0";
-declare -r SCRIPT_NAME="${SCRIPT_PATH##*/}";
+declare -r ME="$0";
+declare -r MY_NAME="${ME##*/}";
+# declare -r MY_DIR="${ME%/*}";
 
 declare -a StringArgs;
 
@@ -21,7 +22,7 @@ declare -r TWRP_IMG="twrp-2.8.7.1-shamu.img";
 
 _init() {
     _getopts "$@";
-}
+};
 
 _main() {
     _findImageName;
@@ -40,18 +41,18 @@ _main() {
 
     echo "Success!";
     echo "Manually boot into recovery, install SuperSU, and then install kernel (optional)";
-}
+};
 
 # Print help and exit.
 _help() {
     local bin="${HOME}/bin"
     cat << EOH >&2
-${SCRIPT_NAME}
+${MY_NAME};
 DESCRIPTION:
   Flash a factory Android image to an Android device
   without wiping user data.
 USAGE:
-  ${SCRIPT_NAME} [<android-image-file-or-directory>]
+  ${MY_NAME} [<android-image-file-or-directory>]
 NOTE:
   If the image file or directory is not specified,
   the current directory is assumed to include an image file.
@@ -60,7 +61,7 @@ EOH
     [ -n "${1}" ] &&
         exit "${1}";
     exit 1;
-}
+};
 
 # Analyze user arguments.
 _getopts() {
@@ -94,7 +95,7 @@ _getopts() {
 
     # Set string options.
     StringArgs+=( "${StringOpts[@]}" );
-}
+};
 
 # Reboot Android device to bootloader.
 _rebootToBootloader() {
@@ -104,20 +105,24 @@ _rebootToBootloader() {
     fi;
 
     adb reboot-bootloader;
-}
+};
 
 # Find the name of the Android image from the 'image*.zip' file.
 _findImageName() {
     ImgZip="$(ls image*.zip)";
 
-    if [ -z "${ImgZip}" ]; then
-        _chkerr "No 'image*.zip' file found";
+    # if [ -z "${ImgZip}" ]; then
+    #     _chkerr "No 'image*.zip' file found";
+    # fi;
+
+    if [ -n "${ImgZip}" ]; then
+        ImgName="$(_rmExt "${ImgZip}" ".zip")";
+    else
+        ImgName="image-$(basename "${PWD}")";
     fi;
 
-    ImgName="$(_rmExt "${ImgZip}" ".zip")";
-
     ImgDir="${ImgName}";
-}
+};
 
 # Extract the 'image*.zip' file.
 _extractZip() {
@@ -127,7 +132,7 @@ _extractZip() {
 
     echo "Unzipping '${ImgZip}'...";
     unzip "${ImgZip}" -d "${ImgDir}";
-}
+};
 
 # Clear non-firmware partitions except for user data.
 # Clear boot, cache, recovery, and system.
@@ -137,7 +142,7 @@ _eraseSystemPartitions() {
     fastboot erase cache;
     fastboot erase recovery;
     fastboot erase system;
-}
+};
 
 # Flash bootloader firmware.
 _flashBootloader() {
@@ -146,7 +151,7 @@ _flashBootloader() {
     _chkerr "Failed to flash bootloader";
     fastboot reboot-bootloader;
     sleep 5;
-}
+};
 
 # Flash radio firmware.
 _flashRadio() {
@@ -155,7 +160,7 @@ _flashRadio() {
     _chkerr "Failed to flash radio";
     fastboot reboot-bootloader;
     sleep 5;
-}
+};
 
 # Flash image partitions except for user data.
 # Clear boot, cache, recovery, and system.
@@ -183,7 +188,7 @@ _flashImage() {
     _chkerr "Failed to flash recovery";
 
     _q popd;
-}
+};
 
 _init "$@";
 _main;
