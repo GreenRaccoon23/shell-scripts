@@ -18,7 +18,7 @@ _chkHelp() {
         +(-)[hH]*([eE][lL][pP]) ) _help 0; ;;
         * ) return ;;
     esac;
-}
+};
 
 # Print help and exit.
 _help() {
@@ -32,7 +32,7 @@ EOH
 
     [ -n "${1}" ] && exit "${1}";
     exit 1;
-}
+};
 
 # Set font color in Terminal.
 _c() {
@@ -60,7 +60,7 @@ _c() {
         return;
     fi;
     tput setaf "${c}";
-}
+};
 
 # Set bold font color in Terminal.
 # Optionally set a new font color as well.
@@ -71,12 +71,12 @@ _C() {
         return;
     fi;
     _c "${1}";
-}
+};
 
 # Reset font color in Terminal to normal.
 _u() {
     tput sgr0;
-}
+};
 
 # Print messages in bold green.
 _gecho() {
@@ -85,26 +85,26 @@ _gecho() {
         echo "${line}";
     done;
     _u;
-}
+};
 
 # Print a message in bold green, WITHOUT appending a newline.
 _gprint() {
     _C green
     printf "%s" "$*";
     _u;
-}
+};
 
 # Run a command silently.
 _q() {
     eval "$@" >/dev/null;
-}
+};
 
 # Exit with error 1 if the previous command returned an error.
 _err() {
     if [[ $? != 0 ]]; then
         exit 1;
     fi;
-}
+};
 
 # Obtain user input (command variant of `read -p`).
 _inp() {
@@ -115,7 +115,7 @@ _inp() {
 
     printf "\r";
     echo "${ans}";
-}
+};
 
 # Rerun script if no arguments were passed.
 _VrfyArgs() {
@@ -135,7 +135,7 @@ _VrfyArgs() {
 
     $0 "${ARGS[@]}";
     exit;
-}
+};
 
 # Install any missing package dependencies.
 _VrfyDeps() {
@@ -157,7 +157,7 @@ _VrfyDeps() {
         fi;
         yaourt -Sa "${Deps[$cmd]}";
     done;
-}
+};
 
 # Clone an aur4 repo if it has not been cloned already.
 _VrfyCloned() {
@@ -177,13 +177,13 @@ _VrfyCloned() {
     echo "Move PKGBUILD and any other local source contents into the new directory.";
     echo "Then change to the new directory and rerun this script.";
     exit 0;
-}
+};
 
 # Test whether the current directory is a cloned git/aur4 repository.
 _isCloned() {
     [ -d ".git" ] && return 0;
     return 1;
-}
+};
 
 # Git clone aur4 repository.
 _clone() {
@@ -192,7 +192,7 @@ _clone() {
 
     _gecho "${cmd}";
     eval "${cmd}";
-}
+};
 
 # Move a directory up one level,
 #   move the contents of its [former] parent directory into it,
@@ -222,7 +222,7 @@ _mvUp() {
     rm -r "${delete}";
 
     _q popd;
-}
+};
 
 # Upload local repository to its aur4 repository.
 _Upload() {
@@ -237,7 +237,7 @@ _Upload() {
     _err;
 
     git push origin master;
-}
+};
 
 _chkHelp "${1}";
 
