@@ -164,7 +164,7 @@ _VrfyCloned() {
     _isCloned && return 0;
 
     local pkg="${1}";
-    if ! [ "${pkg}" ]; then
+    if [ -z "${pkg}" ]; then
         _gprint "Enter package name: ";
         read -p "" pkg;
     fi;
