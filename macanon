@@ -86,7 +86,9 @@ _findCurr() {
 
 _changeMac() {
 
-    sudo ip link set "${DEVICE}" down;
+    # nmcli d disconnect "${DEVICE}";
+    # sudo ip link set "${DEVICE}" down;
+    nmcli radio wifi off;
 
     if [[ "${CURR}" == "${PERM}" ]]; then
         sudo macchanger -a "${DEVICE}";
@@ -95,9 +97,11 @@ _changeMac() {
         sudo macchanger -p "${DEVICE}";
     fi;
 
-    sleep 2s;
+    sleep 1s;
 
-    sudo ip link set "${DEVICE}" up;
+    # sudo ip link set "${DEVICE}" up;
+    # nmcli d connect "${DEVICE}";
+    nmcli radio wifi on;
 }
 
 declare -r PGL="${1}";
