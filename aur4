@@ -139,7 +139,7 @@ _VrfyArgs() {
 
 # Install any missing package dependencies.
 _VrfyDeps() {
-    if ! _q command -v "yaourt"; then
+    if ! _installed "yaourt"; then
         echo "Install yaourt first.";
         exit 1;
     fi;
@@ -151,12 +151,17 @@ _VrfyDeps() {
     );
 
     local cmd;
+    local pkg;
     for cmd in "${!Deps[@]}"; do
-        if _q command -v "${cmd}"; then
-            continue
-        fi;
-        yaourt -Sa "${Deps[$cmd]}";
+        pkg="${Deps[$cmd]}";
+        ! _installed "${cmd}" && yaourt -Sa "${pkg}";
     done;
+};
+
+_installed() {
+    local cmd="${1}";
+    command -v "${cmd}" &>/dev/null && return 0;
+    return 1;
 };
 
 # Clone an aur4 repo if it has not been cloned already.
