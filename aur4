@@ -139,22 +139,17 @@ _VrfyArgs() {
 
 # Install any missing package dependencies.
 _VrfyDeps() {
-    if ! _installed "yaourt"; then
-        echo "Install yaourt first.";
-        exit 1;
-    fi;
-
     local -Ar Deps=(
         ['git']='git'
         ['mksrcinfo']='pkgbuild-introspection'
         ['wget']='wget'
     );
-
     local cmd;
     local pkg;
+
     for cmd in "${!Deps[@]}"; do
         pkg="${Deps[$cmd]}";
-        ! _installed "${cmd}" && yaourt -Sa "${pkg}";
+        ! _installed "${cmd}" && sudo pacman -S "${pkg}";
     done;
 };
 
