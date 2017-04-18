@@ -8,34 +8,29 @@ shopt -s extglob;
 
 # Note: MUST run this script under the cloned (or soon to be cloned) directory of the package's aur4 repository.
 
+declare -r ME="$0";
+declare -r MY_NAME="${ME##*/}";
+# declare -r MY_DIR="${ME%/*}";
+
 # If user requested help, print it.
 _chkHelp() {
-    case "${1}" in        
-        +(-)[hH]*([eE][lL][pP]) )
-            _help 0;
-            ;;
-        * )
-            return
-            ;;
+    case "${1}" in
+        +(-)[hH]*([eE][lL][pP]) ) _help 0; ;;
+        * ) return ;;
     esac;
 }
 
 # Print help and exit.
 _help() {
-    local path="$0";
-    local script=${path##*/};
     cat << EOH >&2
 Usage:
-  ${script} <commit-message>
+  ${MY_NAME} <commit-message>
 Note:
-  This ${script} script needs to run under the cloned (or soon 
-  to be cloned) directory of the package's aur4 repository.
+  This ${MY_NAME} script needs to run under the cloned (or soon
+  to be cloned) directory containing the aur4 repository for the package.
 EOH
 
-#'
-    if [ "${1}" ]; then
-        exit "${1}";
-    fi;
+    [ -n "${1}" ] && exit "${1}";
     exit 1;
 }
 
@@ -45,12 +40,12 @@ _c() {
         tput sgr0;
         return;
     fi;
-    
+
     local -Ar Codes=(
-        ["black"]="0" ["red"]="1" ["green"]="2" ["yellow"]="3" 
-        ["blue"]="4" ["magenta"]="5" ["cyan"]="6" ["white"]="7" 
-        ["bk"]="0" ["r"]="1" ["g"]="2" ["y"]="3" 
-        ["bu"]="4" ["m"]="5" ["c"]="6" ["w"]="7" 
+        ["black"]="0" ["red"]="1" ["green"]="2" ["yellow"]="3"
+        ["blue"]="4" ["magenta"]="5" ["cyan"]="6" ["white"]="7"
+        ["bk"]="0" ["r"]="1" ["g"]="2" ["y"]="3"
+        ["bu"]="4" ["m"]="5" ["c"]="6" ["w"]="7"
     );
 
     local k c;
@@ -72,7 +67,7 @@ _c() {
 _C() {
     tput bold;
 
-    if (($#<1)); then
+    if (($# < 1)); then
         return;
     fi;
     _c "${1}";
@@ -117,7 +112,7 @@ _inp() {
 
     local ans;
     read -p "" ans;
-    
+
     printf "\r";
     echo "${ans}";
 }
@@ -149,10 +144,10 @@ _VrfyDeps() {
         exit 1;
     fi;
 
-    local -Ar Deps=( 
+    local -Ar Deps=(
         ['git']='git'
         ['mksrcinfo']='pkgbuild-introspection'
-        ['wget']='wget' 
+        ['wget']='wget'
     );
 
     local cmd;
@@ -166,19 +161,17 @@ _VrfyDeps() {
 
 # Clone an aur4 repo if it has not been cloned already.
 _VrfyCloned() {
-    if _isCloned; then
-        return;
-    fi;
+    _isCloned && return 0;
 
     local pkg="${1}";
     if ! [ "${pkg}" ]; then
         _gprint "Enter package name: ";
         read -p "" pkg;
     fi;
-    
+
     _clone "${pkg}";
     _err;
-    
+
     #_mvUp "${pkg}";
     #_err;
     echo "Move PKGBUILD and any other local source contents into the new directory.";
@@ -188,9 +181,7 @@ _VrfyCloned() {
 
 # Test whether the current directory is a cloned git/aur4 repository.
 _isCloned() {
-    if [ -d ".git" ] ; then
-        return 0;
-    fi;
+    [ -d ".git" ] && return 0;
     return 1;
 }
 
@@ -209,11 +200,10 @@ _clone() {
 # E.g.: "/home/chucknorris/dir/dir" > "/home/chucknorris/dir"
 _mvUp() {
     local target="${1}";
-    if ! [ -d "${target}" ]; then
-        return 1;
-    fi;
     local parent="${PWD##*/}";
     local delete="${parent}_tmp_deletethisdirectory";
+
+    ! [ -d "${target}" ] && return 1;
 
     _q pushd "..";
 
@@ -221,7 +211,7 @@ _mvUp() {
         _q popd;
         return 1;
     fi;
-    if [ -d "${target}" ] && [[ "${target}" != "${parent}" ]]; then
+    if [ -d "${target}" ] && [ "${target}" != "${parent}" ]; then
         _q popd;
         return 1;
     fi;
@@ -230,7 +220,7 @@ _mvUp() {
     mv "${delete}/${target}" "${target}" &&
     cp -a "${delete}/." "${target}/" &&
     rm -r "${delete}";
-    
+
     _q popd;
 }
 
@@ -251,18 +241,15 @@ _Upload() {
 
 _chkHelp "${1}";
 
-declare -a ARGS=( $@ );
+declare -a ARGS=($@);
 
 _VrfyDeps;
 
 _VrfyArgs "Enter commit: ";
 
 declare COMMIT="${ARGS[*]}";
-if ! [ "${COMMIT[*]}" ]; then
-    _help;
-fi;
+! [ "${COMMIT[*]}" ] && _help;
 
 _VrfyCloned;
 
 _Upload "${COMMIT}";
-
