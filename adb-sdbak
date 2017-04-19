@@ -7,7 +7,7 @@ declare -r BUSYBOX="/su/xbin";
 
 declare -r ME="$0";
 declare -r MY_NAME="${ME##*/}";
-declare -r MY_DIR="$(dirname "$0")";
+declare -r MY_DIR="${ME%/*}";
 
 declare -r TMP_DB="${MY_DIR}/.${MY_NAME}.tmp.db";
 declare -r TMP_FILE_DIRS="${MY_DIR}/.${MY_NAME}_dirs.tmp";
@@ -46,9 +46,6 @@ declare SELECTION;
 
 # Print help and exit.
 _help() {
-
-    local -i statusCode="${1}";
-
     cat << EOH >&2
 ${MY_NAME}
 DESCRIPTION:
@@ -71,7 +68,7 @@ NOTE:
     add 'export PATH=\$PATH:${MY_DIR}' to '~/.bashrc'.)
 EOH
 
-    exit "${statusCode}";
+    exit 0;
 };
 
 # Analyze user arguments.
@@ -86,27 +83,13 @@ _getopts() {
     for ((i=1; i<=$#; i++)); do
         eval flag="\$$i";
         case "${flag}" in
-            *(-)[hH]*([eE][lL][pP]) )
-                _help;
-                ;;
-            *(-)[rR]*([eE][sS][uU][mM][eE]) )
-                Bools[0]=0;
-                ;;
-            *(-)[cC]*([oO][nN][tT][iI][nN][uU][eE]) )
-                Bools[0]=0;
-                ;;
-            *(-)[aA]*([lL]) )
-                Bools[1]=0;
-                ;;
-            *(-)[fF]*([uU]+([lL])) )
-                Bools[1]=0;
-                ;;
-            *(-)[fF]*([oO][rR][cC][eE]) )
-                Bools[1]=0;
-                ;;
-            * )
-                Strings+=("${flag}");
-                ;;
+            *(-)[hH]*([eE][lL][pP]) ) _help; ;;
+            *(-)[rR]*([eE][sS][uU][mM][eE]) ) Bools[0]=0; ;;
+            *(-)[cC]*([oO][nN][tT][iI][nN][uU][eE]) ) Bools[0]=0; ;;
+            *(-)[aA]*([lL]) ) Bools[1]=0; ;;
+            *(-)[fF]*([uU]+([lL])) ) Bools[1]=0; ;;
+            *(-)[fF]*([oO][rR][cC][eE]) ) Bools[1]=0; ;;
+            * ) Strings+=("${flag}"); ;;
         esac;
     done;
 
