@@ -18,7 +18,7 @@ declare ImgZip;
 declare ImgName;
 declare ImgDir;
 
-declare -r TWRP_IMG="twrp-2.8.7.1-shamu.img";
+declare -r TWRP_IMG="twrp-3.1.0-0-shamu.img";
 
 _init() {
     _getopts "$@";
