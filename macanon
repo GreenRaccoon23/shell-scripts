@@ -1,50 +1,19 @@
 #!/bin/bash
 
-# Set console color.
-_c() {
-    if (($# == 0)); then
-        tput sgr0;
-        return;
-    fi;
+declare -r PGL="${1}";
+declare -a ALL_DEVICES;
+declare DEVICE;
+declare PERM;
+declare CURR;
 
-    local -A Codes=(
-        ["black"]="0" ["red"]="1" ["green"]="2" ["yellow"]="3"
-        ["blue"]="4" ["magenta"]="5" ["cyan"]="6" ["white"]="7"
-        ["bk"]="0" ["r"]="1" ["g"]="2" ["y"]="3"
-        ["bu"]="4" ["m"]="5" ["c"]="6" ["w"]="7"
-    );
 
-    local k c;
-    for k in "${!Codes[@]}"; do
-        if [[ "${k}" != "${1}" ]]; then
-            continue;
-        fi;
-        c="${Codes["$k"]}";
-    done;
-
-    if [ ! "${c}" ]; then
-        return;
-    fi;
-    tput setaf "${c}";
-}
-
-_u() {
-    tput sgr0;
-}
-
-# Print a line break.
-# Optionally, run a command first in order to colorize it.
-_line() {
-    if (($# > 0)); then
-        eval "$@";
-    fi;
-
-    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' =;
-
-    if (($# > 0)); then
-        _u;
-    fi;
-}
+_main() {
+    sudo -v;
+    _choose;
+    _findPerm;
+    _findCurr;
+    _changeMac;
+};
 
 _choose() {
     ALL_DEVICES="$(
@@ -72,17 +41,17 @@ _choose() {
         sed -re 's/...(.*?):.*/\1/'
     )";
     echo "${DEVICE}";
-}
+};
 
 _findPerm() {
     PERM="$(sudo macchanger -s "${DEVICE}"| tail -n 1)";
     PERM="${PERM#Permanent MAC: }";
-}
+};
 
 _findCurr() {
     CURR="$(sudo macchanger -s "${DEVICE}"| head -n 1)";
     CURR="${CURR#Current MAC:   }";
-}
+};
 
 _changeMac() {
 
@@ -102,20 +71,39 @@ _changeMac() {
     # sudo ip link set "${DEVICE}" up;
     # nmcli d connect "${DEVICE}";
     nmcli radio wifi on;
-}
+};
 
-declare -r PGL="${1}";
+_c() {
 
-sudo -v;
+    local -r name="${1}";
+    local -Ar codes=(
+        ["black"]="0"
+        ["red"]="1"
+        ["green"]="2"
+        ["yellow"]="3"
+        ["blue"]="4"
+        ["magenta"]="5"
+        ["cyan"]="6"
+        ["white"]="7"
+    );
+    local -r code="${codes[$name]}"
 
-declare -a ALL_DEVICES;
-declare DEVICE;
-_choose;
+    [ -n "${code}" ] && tput setaf "${code}";
 
-declare PERM;
-_findPerm;
+    [ -z "${*:2}" ] && return 0;
 
-declare CURR;
-_findCurr;
+    eval "${@:2}";
+    _ifErr "Failed to run '${*:2}'";
 
-_changeMac;
+    tput sgr0;
+};
+
+_u() {
+    tput sgr0;
+};
+
+_line() {
+    printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' =;
+};
+
+_main;
