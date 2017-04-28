@@ -1,6 +1,6 @@
 #!/bin/bash
 
-declare -r PGL="${1}";
+declare PGL="${1}";
 declare -a ALL_DEVICES=();
 declare DEVICE;
 declare PERM;
@@ -33,7 +33,7 @@ _chooseDevice() {
 
     DEVICE="${ALL_DEVICES[${i}]}";
     DEVICE="$(echo "${DEVICE}" | sed 's/^[0-9]\+: \(.*\)/\1/')";
-    echo "${DEVICE}";
+    # echo "${DEVICE}";
 };
 
 _setAllDevices() {
@@ -68,23 +68,26 @@ _findCurr() {
 
 _changeMac() {
 
-    # sudo ip link set "${DEVICE}" down;
-    nmcli d disconnect "${DEVICE}";
-    nmcli radio wifi off;
+    # nmcli d disconnect "${DEVICE}";
+    # nmcli radio wifi off;
+    sudo ip link set "${DEVICE}" down;
 
     if [ "${CURR}" = "${PERM}" ]; then
         sudo macchanger -a "${DEVICE}";
-        [ -n "${PGL}" ] && pglgui &>/dev/null &disown;
+        [ -n "${PGL}" ] && _launchPglgui;
     else
         sudo macchanger -p "${DEVICE}";
     fi;
 
-    sleep 1s;
+    # sleep 4s; # wait for other processes to notice
 
-    # sudo ip link set "${DEVICE}" up;
-    nmcli radio wifi on;
-    sleep 1s; # wait till radio is on
-    nmcli d connect "${DEVICE}";
+    # nmcli radio wifi on;
+    # nmcli d connect "${DEVICE}";
+    sudo ip link set "${DEVICE}" up;
+};
+
+_launchPglgui() {
+    pglgui &>/dev/null &disown;
 };
 
 _c() {
