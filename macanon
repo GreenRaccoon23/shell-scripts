@@ -79,15 +79,21 @@ _changeMac() {
         sudo macchanger -p "${DEVICE}";
     fi;
 
-    # sleep 4s; # wait for other processes to notice
-
     # nmcli radio wifi on;
     # nmcli d connect "${DEVICE}";
     sudo ip link set "${DEVICE}" up;
+    _waitUntilConnected;
 };
 
 _launchPglgui() {
     pglgui &>/dev/null &disown;
+};
+
+_waitUntilConnected() {
+    ping google.com -c 1 &>/dev/null;
+    [ $? -eq 0 ] && return; # base case
+    sleep 0.1s;
+    _waitUntilConnected; # recursive case
 };
 
 _c() {
