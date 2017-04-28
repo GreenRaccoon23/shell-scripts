@@ -1,7 +1,7 @@
 #!/bin/bash
 
 declare -r PGL="${1}";
-declare -a ALL_DEVICES;
+declare -a ALL_DEVICES=();
 declare DEVICE;
 declare PERM;
 declare CURR;
@@ -9,59 +9,72 @@ declare CURR;
 
 _main() {
     sudo -v;
-    _choose;
+    _setAllDevices;
+    _chooseDevice;
     _findPerm;
     _findCurr;
     _changeMac;
 };
 
-_choose() {
-    ALL_DEVICES="$(
-        ip link show |
-        grep "^[0-9]" |
-        sed -re 's/([0-9].*?):.*/\1/'
-    )";
+_chooseDevice() {
 
     _c green;
-    local d;
-    for d in "${ALL_DEVICES[@]}"; do
-        echo "${d}";
-    done;
-    printf "\n==> Enter device: \n";
-    _line;
-    printf "==> ";
+    _printAllDevices;
+    echo;
+    echo '==> Enter device: ';
+    echo "$(_line)";
+    printf '==> ';
     _u;
 
     local -i choice;
-    read -p "" choice;
+    local -i i;
+    read -p "" choice; # todo: validate
+    i=$((${choice}-1));
 
-    DEVICE="$(
-        ip link show |
-        grep "^${choice}" |
-        sed -re 's/...(.*?):.*/\1/'
-    )";
+    DEVICE="${ALL_DEVICES[${i}]}";
+    DEVICE="$(echo "${DEVICE}" | sed 's/^[0-9]\+: \(.*\)/\1/')";
     echo "${DEVICE}";
 };
 
+_setAllDevices() {
+    local device;
+    while read -r device; do
+        ALL_DEVICES+=("${device}");
+    done <<< "$(_listDevices)";
+};
+
+_listDevices() {
+    ip link show |
+        grep --color='never' "^[0-9]" |
+        sed -re 's/([0-9].*?):.*/\1/';
+};
+
+_printAllDevices() {
+    local device;
+    for device in "${ALL_DEVICES[@]}"; do
+        echo "${device}";
+    done;
+};
+
 _findPerm() {
-    PERM="$(sudo macchanger -s "${DEVICE}"| tail -n 1)";
-    PERM="${PERM#Permanent MAC: }";
+    PERM="$(sudo macchanger -s "${DEVICE}" | tail -n 1)";
+    PERM="$(echo "${PERM}" | sed 's/^Permanent MAC:\s\+\([0-9A-Za-z:]*\)\s(.*/\1/')";
 };
 
 _findCurr() {
-    CURR="$(sudo macchanger -s "${DEVICE}"| head -n 1)";
-    CURR="${CURR#Current MAC:   }";
+    CURR="$(sudo macchanger -s "${DEVICE}" | head -n 1)";
+    CURR="$(echo "${CURR}" | sed 's/^Current MAC:\s\+\([0-9A-Za-z:]*\)\s(.*/\1/')";
 };
 
 _changeMac() {
 
-    # nmcli d disconnect "${DEVICE}";
     # sudo ip link set "${DEVICE}" down;
+    nmcli d disconnect "${DEVICE}";
     nmcli radio wifi off;
 
-    if [[ "${CURR}" == "${PERM}" ]]; then
+    if [ "${CURR}" = "${PERM}" ]; then
         sudo macchanger -a "${DEVICE}";
-        [ "${PGL}" ] && pglgui &>/dev/null &disown;
+        [ -n "${PGL}" ] && pglgui &>/dev/null &disown;
     else
         sudo macchanger -p "${DEVICE}";
     fi;
@@ -69,8 +82,9 @@ _changeMac() {
     sleep 1s;
 
     # sudo ip link set "${DEVICE}" up;
-    # nmcli d connect "${DEVICE}";
     nmcli radio wifi on;
+    sleep 1s; # wait till radio is on
+    nmcli d connect "${DEVICE}";
 };
 
 _c() {
