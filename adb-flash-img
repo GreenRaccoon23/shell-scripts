@@ -5,6 +5,10 @@ source lib-exec-opts;
 source lib-input;
 source lib-fmt;
 
+declare -r CODENAME="shamu";
+declare -r TWRP_VER="3.1.0-0";
+declare -r TWRP_IMG="twrp-${TWRP_VER}-${CODENAME}.img";
+
 declare -r ME="$0";
 declare -r MY_NAME="${ME##*/}";
 # declare -r MY_DIR="${ME%/*}";
@@ -18,14 +22,13 @@ declare ImgZip;
 declare ImgName;
 declare ImgDir;
 
-declare -r TWRP_IMG="twrp-3.1.0-0-shamu.img";
 
 _init() {
     _getopts "$@";
 };
 
 _main() {
-    _findImageName;
+    _findImgName;
     _c green echo "${ImgName}";
 
     _extractZip;
@@ -108,7 +111,7 @@ _rebootToBootloader() {
 };
 
 # Find the name of the Android image from the 'image*.zip' file.
-_findImageName() {
+_findImgName() {
     ImgZip="$(ls image*.zip)";
 
     # if [ -z "${ImgZip}" ]; then
@@ -126,9 +129,7 @@ _findImageName() {
 
 # Extract the 'image*.zip' file.
 _extractZip() {
-    if [ -d "${ImgDir}" ]; then
-        return 0;
-    fi;
+    [ -d "${ImgDir}" ] && return 0;
 
     echo "Unzipping '${ImgZip}'...";
     unzip "${ImgZip}" -d "${ImgDir}";
