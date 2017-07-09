@@ -625,8 +625,8 @@ _c() {
 
     [ -n "${code}" ] && tput setaf "${code}";
 
-    [ -z "${*:2}" ] &&
-        return;
+    [ -z "${*:2}" ] && return;
+
     eval "${@:2}";
     tput sgr0;
 };
