@@ -2,7 +2,7 @@
 shopt -s extglob
 
 declare -r CMD_PULL="adb-pull";
-declare -r CMD_RM="gvfs-trash";
+declare -r CMD_RM=(gio trash);
 declare -r BUSYBOX="/su/xbin";
 
 declare -r ME="$0";
@@ -127,8 +127,8 @@ _rmTmpFiles() {
 
     _cln green "Removing temporary files...";
 
-    [ -e "${TMP_DB}" ] && "${CMD_RM}" "${TMP_DB}";
-    [ -e "${TMP_FILE_DIRS}" ] && "${CMD_RM}" "${TMP_FILE_DIRS}";
+    [ -e "${TMP_DB}" ] && "${CMD_RM[@]}" "${TMP_DB}";
+    [ -e "${TMP_FILE_DIRS}" ] && "${CMD_RM[@]}" "${TMP_FILE_DIRS}";
 };
 
 _dstCreate() {
@@ -569,7 +569,7 @@ _percentDone() {
 # Manage temporary files and report any final errors.
 _cleanUp() {
 
-    [ -e "${TMP_FILE_DIRS}" ] && "${CMD_RM}" "${TMP_FILE_DIRS}";
+    [ -e "${TMP_FILE_DIRS}" ] && "${CMD_RM[@]}" "${TMP_FILE_DIRS}";
 
     echo;
     echo "Did not pull:";
@@ -583,7 +583,7 @@ _cleanUp() {
     if (_cf green '==> Remember to pull these files the next time this script is run?' && _Yn); then #yes
         return 0;
     else
-        [ -e "${TMP_DB}" ] && "${CMD_RM}" "${TMP_DB}";
+        [ -e "${TMP_DB}" ] && "${CMD_RM[@]}" "${TMP_DB}";
     fi;
 };
 
