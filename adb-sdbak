@@ -132,10 +132,12 @@ _rmTmpFiles() {
 };
 
 _dstCreate() {
-
-    _c green "echo Creating destination directory \\'${DST_PARENT}\\'...";
-
-    mkdir -p "${DST_PARENT}";
+    if [ -e "${DST_PARENT}" ]; then
+        _c green "echo Using destination directory \\'${DST_PARENT}\\'...";
+    else
+        _c green "echo Creating destination directory \\'${DST_PARENT}\\'...";
+        mkdir -p "${DST_PARENT}";
+    fi;
 };
 
 _dbCreate() {
