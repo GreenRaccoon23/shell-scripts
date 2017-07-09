@@ -601,6 +601,7 @@ _dbFetchNonPulled() {
 # Optionally, run a command afterwards, and once the command returns,
 #   reset the console color to normal.
 _c() {
+    local requested="${1}";
     local -A Codes=(
         ["black"]="0"
         ["red"]="1"
@@ -620,14 +621,9 @@ _c() {
         ["w"]="7"
     );
 
-    local k c;
-    for k in "${!Codes[@]}"; do
-        [ "${k}" = "${1}" ] &&
-            c="${Codes[$k]}";
-    done;
+    local code="${Codes[$requested]}";
 
-    [ -n "${c}" ] &&
-        tput setaf "${c}";
+    [ -n "${code}" ] && tput setaf "${code}";
 
     [ -z "${*:2}" ] &&
         return;
