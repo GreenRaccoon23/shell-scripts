@@ -330,8 +330,8 @@ _dbFetchInfos() {
 
 _printInfos() {
 
-    local widthCellIdd=5;
-    local widthCellSize=10;
+    local WIDTH_CELL_IDD=5;
+    local WIDTH_CELL_SIZE=10;
 
     local separator;
     separator=$(printf '%0.1s' " "{1..1000});
@@ -343,28 +343,33 @@ _printInfos() {
     local name;
     local spacing;
 
-    _c green "echo Directories to be pulled:";
-
-    for row in "${SRC_INFOS[@]}"; do
-
+    _parseRow() {
         IFS='|' read -ra cells <<< "${row}";
         idd="${cells[0]}";
         size="${cells[1]}";
         name="${cells[2]}";
+    };
 
-        idd="[${idd}]";
+    _printRow() {
 
         printf '    ';
 
-        spacing=$((widthCellIdd - ${#idd}));
-        printf '%s' "${idd}";
+        spacing=$((WIDTH_CELL_IDD - ${#idd}));
+        printf '%s' "[${idd}]";
         printf '%*.*s' 0 "${spacing}" "${separator}";
 
-        spacing=$((widthCellSize - ${#size}));
+        spacing=$((WIDTH_CELL_SIZE - ${#size}));
         printf '%s' "${size}";
         printf '%*.*s' 0 "${spacing}" "${separator}";
 
         printf '%s\n' "${name}";
+    };
+
+    _c green "echo Directories to be pulled:";
+
+    for row in "${SRC_INFOS[@]}"; do
+        _parseRow;
+        _printRow;
     done;
 };
 
