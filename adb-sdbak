@@ -125,7 +125,7 @@ _connect() {
 
 _rmTmpFiles() {
 
-    _c green "echo Removing temporary files...";
+    _cln green "Removing temporary files...";
 
     [ -e "${TMP_DB}" ] && "${CMD_RM}" "${TMP_DB}";
     [ -e "${TMP_FILE_DIRS}" ] && "${CMD_RM}" "${TMP_FILE_DIRS}";
@@ -133,9 +133,9 @@ _rmTmpFiles() {
 
 _dstCreate() {
     if [ -e "${DST_PARENT}" ]; then
-        _c green "echo Using destination directory \\'${DST_PARENT}\\'...";
+        _cln green "Using destination directory \\'${DST_PARENT}\\'...";
     else
-        _c green "echo Creating destination directory \\'${DST_PARENT}\\'...";
+        _cln green "Creating destination directory \\'${DST_PARENT}\\'...";
         mkdir -p "${DST_PARENT}";
     fi;
 };
@@ -144,7 +144,7 @@ _dbCreate() {
 
     [ -e "${TMP_DB}" ] && _dbTableExists && return 0;
 
-    _c green "echo Creating database...";
+    _cln green "Creating database...";
 
     local query="${TABLE_SRCS_SCHEMA}";
 
@@ -171,19 +171,19 @@ _main() {
     _showSrcs || exit $?;
     _selectSrcs || exit $?;
 
-    _c green "echo Counting total size of directories...";
+    _cln green "Counting total size of directories...";
     _setSrcSizeTotal || exit $?;
 
-    _c green "echo Counting total size of any pulled directories...";
+    _cln green "Counting total size of any pulled directories...";
     _setSrcSizePulled || exit $?;
 
     # _choose; #todo: do this?
 
-    _c green "echo Fetching list of directories to pull...";
+    _cln green "Fetching list of directories to pull...";
     _dbFetchNames;
 
     _q pushd "${DST_PARENT}";
-    _c green "echo Starting backup";
+    _cln green "Starting backup";
     _pullSrcs;
     _q popd;
 
@@ -225,7 +225,7 @@ _pullNames() {
 
     [ -e "${TMP_FILE_DIRS}" ] && return 0;
 
-    _c green "echo Retrieving directories...";
+    _cln green "Retrieving directories...";
 
     echo " " adb shell \"su -c ${BUSYBOX}/ls --color=never -A1 ${SRC_PARENT}/\" '>' \"${TMP_FILE_DIRS}\";
     adb shell "su -c ${BUSYBOX}/ls --color=never -A1 ${SRC_PARENT}/" > "${TMP_FILE_DIRS}";
@@ -241,7 +241,7 @@ _setSrcNames() {
 
 _dbInsertNames() {
 
-    _c green "echo Inserting directories into database...";
+    _cln green "Inserting directories into database...";
 
     local name;
     local query;
@@ -260,13 +260,13 @@ _pullAndUpdateSizes() {
     local name;
     local -i size;
 
-    _c green "echo Retrieving directory sizes...";
+    _cln green "Retrieving directory sizes...";
 
     for name in "${SRC_NAMES[@]}"; do
         # _adbDirSize "${name}"; continue; #delete
         size="$(_adbDirSize "${name}")";
         if [ -z "${size}" ]; then
-            _c yellow "echo Failed to get size of \"${name}\"";
+            _cln yellow "Failed to get size of \"${name}\"";
             size=0;
         fi;
 
@@ -367,7 +367,7 @@ _printInfos() {
         printf '%s\n' "${name}";
     };
 
-    _c green "echo Directories to be pulled:";
+    _cln green "Directories to be pulled:";
 
     for row in "${SRC_INFOS[@]}"; do
         _parseRow;
@@ -491,7 +491,7 @@ _pullSrcs() {
     local name;
     for name in "${SRC_NAMES[@]}"; do
         _pullSrc "${name}";
-        _c blue "echo Progress: ${SRC_SIZE_PULLED} KB / ${SRC_SIZE_TOTAL} KB $(_percentDone)%";
+        _cln blue "Progress: ${SRC_SIZE_PULLED} KB / ${SRC_SIZE_TOTAL} KB $(_percentDone)%";
     done;
 };
 
@@ -499,12 +499,12 @@ _pullSrc() {
 
     local name="${*}";
 
-    if _c green "echo -n ==\> Pull \\\"${name}\\\"?" && _Yn 3; then #yes
+    if _cf green '==> Pull "%s"?' "${name}" && _Yn 3; then #yes
         "${CMD_PULL}" "${SRC_PARENT}/${name}" &&
             _dbPulled "${name}" &&
             _updateSizeDone "${name}";
 
-    elif _c green "echo -n ==\> Remove \\\"${name}\\\" from backup list?" && _yN 30; then #yes
+    elif _cf green '==> Remove "%s" from backup list?' "${name}" && _yN 30; then #yes
         _dbDisable "${name}" &&
             _updateSizeDone "${name}";
 
@@ -575,12 +575,12 @@ _cleanUp() {
     echo "Did not pull:";
     _dbFetchNonPulled;
 
-    if (_c green "echo -n ==\> Pull them now?" && _yN); then #yes
+    if (_cf green '==> Pull them now?' && _yN); then #yes
         "$0";
         exit $?;
     fi;
 
-    if (_c green "echo -n ==\> Remember to pull these files the next time this script is run?" && _Yn); then #yes
+    if (_cf green '==> Remember to pull these files the next time this script is run?' && _Yn); then #yes
         return 0;
     else
         [ -e "${TMP_DB}" ] && "${CMD_RM}" "${TMP_DB}";
@@ -598,8 +598,6 @@ _dbFetchNonPulled() {
 };
 
 # Set console color.
-# Optionally, run a command afterwards, and once the command returns,
-#   reset the console color to normal.
 _c() {
     local requested="${1}";
     local -A Codes=(
@@ -620,23 +618,57 @@ _c() {
         ["c"]="6"
         ["w"]="7"
     );
-
     local code="${Codes[$requested]}";
 
-    [ -n "${code}" ] && tput setaf "${code}";
+    [ -z "${code}" ] && return;
 
-    [ -z "${*:2}" ] && return;
+    tput setaf "${code}";
+};
 
-    eval "${@:2}";
+# `echo` a message in a requested color.
+# Reset the console color to normal before returning.
+_cln() {
+
+    local requested="${1}";
+
+    # [ -z "${*:2}" ] && return;
+
+    _c "${requested}";
+    echo "${@:2}";
+    tput sgr0;
+};
+
+# `printf` a message in a requested color.
+# Reset the console color to normal before returning.
+_cf() {
+
+    local requested="${1}";
+
+    # [ -z "${*:2}" ] && return;
+
+    _c "${requested}";
+    printf "${@:2}";
     tput sgr0;
 };
 
 # Set the console color to bold.
-# Optionally, pass any arguments to function '_c'.
+# Optionally, set it to a different color as well.
 _C() {
+    local requested="${1}";
     tput bold;
-    [ -n "$*" ] &&
-        _c "$@";
+    [ -n "${requested}" ] && _c "${requested}";
+};
+
+# Bold version of `_cln`.
+_Cln() {
+    tput bold;
+    _cln "$@";
+};
+
+# Bold version of `_cf`.
+_Cf() {
+    tput bold;
+    _cf "$@";
 };
 
 # Reset console color to normal.
@@ -650,15 +682,12 @@ _evalcho() {
     eval "$@";
 };
 
-# Exit with status 1 after echoing an error message.
+# Exit with status 1 after printing an error message.
 _err() {
-    local err="$*";
-    [ -z "${err}" ] &&
-        err="An error occurred. Cannot continue.";
+    local err=("$@");
+    [ -z "${err[*]}" ] && err=("An error occurred. Cannot continue.");
 
-    _c red;
-    echo -e "${err}";
-    _u;
+    _cf red "${err[@]}";
     exit 1;
 };
 
