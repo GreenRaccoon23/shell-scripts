@@ -7,7 +7,7 @@ _help() {
     local script="${path##*/}";
     cat << EOH >&2
 Run \`adb push\` and verify the integrity of the sent files.
-Usage: 
+Usage:
     ${script} <files/directories>...
 EOH
 
@@ -28,7 +28,7 @@ _getopts() {
     local flag;
     for ((i=1;i<=$#;i++)); do
         eval flag="\$$i";
-        case "${flag}" in 
+        case "${flag}" in
             *(-)[hH] | *(-)[hH][eE][lL][pP] )
                 _help 0;
                 ;;
@@ -40,15 +40,15 @@ _getopts() {
 # Optionally, run a command afterwards, and once the command returns,
 #   reset the console color to normal.
 _c() {
-    local -A Codes=( 
-        ["black"]="0" 
-        ["red"]="1" 
-        ["green"]="2" 
-        ["yellow"]="3" 
-        ["blue"]="4" 
-        ["magenta"]="5" 
-        ["cyan"]="6" 
-        ["white"]="7" 
+    local -A Codes=(
+        ["black"]="0"
+        ["red"]="1"
+        ["green"]="2"
+        ["yellow"]="3"
+        ["blue"]="4"
+        ["magenta"]="5"
+        ["cyan"]="6"
+        ["white"]="7"
     );
 
     local k c;
@@ -59,7 +59,7 @@ _c() {
 
     [ -n "${c}" ] &&
         tput setaf "${c}";
-    
+
     [ -z "${*:2}" ] &&
         return;
 
@@ -159,18 +159,17 @@ _untar() {
              rm '${FILE}'\"";
     #adb shell "cd \"${DST}\" && tar -xf \"${FILE}\" && rm \"${FILE}\"";
 
-    local adbCmd="cd '${DST}' && 
+    local adbCmd="cd '${DST}' &&
                   tar -xf '${FILE}'";
     local adbStatus;
     adbStatus="$(_adbShellStatus "${adbCmd}")";
     adb shell "rm '${DST}/${FILE}'";
-    [ "${adbStatus}" = 0 ] ||
-        return 1;
+    [ "${adbStatus}" = 0 ] || return 1;
 
     echo "Cleaning up...";
     rm "${FILE}" ||
         return $?;
-    
+
     FILE="$(_rmExt "${FILE}" "tar")";
     COPY="$(_rmExt "${COPY}" "tar")";
 }
@@ -201,7 +200,7 @@ _mkParents() {
     local dir="${1}";
     [ -d "${dir}" ] &&
         dir="${dir}/";
-    
+
     # Return if no directory structure needs to be made.
     [ "${dir}" = "." ] &&
         return;
@@ -285,7 +284,7 @@ _main() {
         _retry;
         return $?;
     fi;
-    
+
     # If the file was tarred earlier,
     #   untar it on the device,
     #   remove the tar file on the device,
@@ -298,7 +297,7 @@ _main() {
             return $?;
         fi;
     fi;
-    
+
     # Remember to move back to the original directory.
     [ -n "${PARENT_DIR}" ] &&
         _q popd;
@@ -347,4 +346,3 @@ if [ -n "${2}" ]; then
 fi;
 
 exit $?;
-
