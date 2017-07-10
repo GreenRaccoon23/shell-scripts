@@ -563,7 +563,7 @@ _updateSizeDone() {
 };
 
 _percentDone() {
-    node -p "parseFloat(${SRC_SIZE_PULLED} / ${SRC_SIZE_TOTAL} / 100).toFixed(2)";
+    node -p "parseFloat(${SRC_SIZE_PULLED} / ${SRC_SIZE_TOTAL} * 100).toFixed(2)";
 };
 
 # Manage temporary files and report any final errors.
