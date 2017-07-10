@@ -164,7 +164,7 @@ _untar() {
     local adbStatus;
     adbStatus="$(_adbShellStatus "${adbCmd}")";
     adb shell "rm '${DST}/${FILE}'";
-    [ "${adbStatus}" = 0 ] || return 1;
+    # [ "${adbStatus}" = 0 ] || return 1; # `tar` throws weird `chown` errors
 
     echo "Cleaning up...";
     rm "${FILE}" ||
