@@ -1,0 +1,100 @@
+#!/bin/bash
+
+# declare -r ME="$0";
+# declare -r MY_NAME="${ME##*/}";
+# declare -r MY_DIR="${ME%/*}";
+
+declare -r IFS_DEFAULT="${IFS}";
+# declare IFS_LINE;
+# IFS_LINE="$(printf '\n\r')";
+
+declare -a ARGS;
+declare ARG;
+declare SELECTION;
+declare -a PICKED;
+
+
+_main() {
+    _input;
+    _output;
+};
+
+_input() {
+    _list;
+    _choose;
+};
+
+_output() {
+    _pick;
+    _reveal;
+};
+
+_list() {
+
+    local WIDTH_I=5;
+    local separator;
+    separator=$(printf '%0.1s' " "{1..1000});
+    local -i i;
+    local arg;
+    local spacing;
+
+    for i in "${!ARGS[@]}"; do
+        arg="${ARGS[$i]}";
+        spacing=$((WIDTH_I - ${#i}));
+
+        printf '  ';
+        printf '%s' "[${i}]";
+        printf '%*.*s' 0 "${spacing}" "${separator}";
+        printf '%s\n' "${arg}";
+    done;
+};
+
+_choose() {
+    read -p "Enter a selection (default=all): " SELECTION </dev/tty;
+};
+
+_pick() {
+
+    local -a groups;
+    IFS=',' read -ra groups <<< "${SELECTION}";
+
+    local group;
+    local -a range;
+    local min;
+    local max;
+    local -i i;
+
+    for group in "${groups[@]}"; do
+
+        IFS='-' read -ra range <<< "${group}";
+        min="${range[0]}";
+        max="${range[1]}";
+        [ -z "${max}" ] && max="${min}";
+
+        for i in $(seq ${min} ${max}); do
+            PICKED+=("${i}");
+        done;
+
+    done;
+
+    IFS="${IFS_DEFAULT}";
+
+    return $?;
+};
+
+_reveal() {
+    local -i i;
+    local arg;
+    for i in "${PICKED[@]}"; do
+        arg="${ARGS[$i]}";
+        [ -z "${arg}" ] && continue;
+        echo "${arg}";
+    done;
+};
+
+
+while read ARG; do
+    ARGS+=("${ARG}");
+done;
+
+_main;
