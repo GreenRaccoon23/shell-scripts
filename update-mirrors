@@ -1,111 +1,146 @@
 #!/usr/bin/env bash
 
-declare TMP;
-declare -r FILE="mirrorlist";
-declare -r BACKUP="mirrorlist.backup";
-declare -r PACOLD="mirrorlist.pacold";
-declare -r PACNEW="mirrorlist.pacnew";
+set -o errexit
+set -o pipefail
+set -o nounset
+# set -o xtrace
 
-_main() {
-    _runAsRoot;
+declare -r PACDIR="/etc/pacman.d"
+declare -r PACNOW="mirrorlist"
+declare Pacold="mirrorlist.pacold"
+declare -r PACNEW="mirrorlist.pacnew"
+declare -r PACTMP="mirrorlist.tmp"
+declare -r PACBAK="mirrorlist.backup"
 
-    _q pushd "/etc/pacman.d";
+main() {
 
-    [ -e "${FILE}" ] || exit 1;
+    if ! pushd "${PACDIR}" &>/dev/null; then
+        fail "Failed to open directory '${PACDIR}'" $?
+    fi
 
-    _showCurrent;
+    if ! [[ -e "${PACNOW}" ]]; then
+        fail "Missing file '${PACNOW}'" 1
+    fi
 
-    echo "Backing up current mirrorlist...";
-    _bakPacOld;
+    set_pacold
 
-    echo "Creating temporary list of United States servers...";
-    _tmpPac;
+    echo 'Current mirrorlist:'
+    print_pacnow
 
-    echo "Finding 6 fastest mirrors...";
-    _rankPac;
+    echo
+    echo 'Backing up current mirrorlist...'
+    create_pacold
 
-    echo "Backing up new mirrorlist...";
-    _bakPacNew;
+    echo
+    echo 'Creating temporary list of United States servers...'
+    create_pacnew
+    filter_mirrors
+    uncomment_mirrors
 
-    _q popd;
+    echo
+    echo 'Finding 6 fastest mirrors...'
+    rank_mirrors
 
-    echo "Success."
-};
+    echo
+    echo 'New mirrorlist:'
+    print_pacnow
 
-_runAsRoot() {
-    [ "$(whoami)" = "root" ] && return 0;
-    sudo "$0";
-    exit $?;
-};
+    echo
+    echo 'Backing up new mirrorlist...'
+    create_pacbak
 
-_showCurrent() {
-    echo "Current mirrorlist:";
-    cat "${FILE}";
-};
+    popd &>/dev/null
 
-# Backup the current mirrorlist.
-# Find an unused filename for the new backup.
-_bakPacOld() {
-    local bak;
-    bak="$(_genNewBak "${PACOLD}")";
+    echo
+    echo 'Success.'
+}
 
-    _evalcho cp -a "${FILE}" "${bak}" ||
-        exit $?;
-};
+set_pacold() {
 
-_genNewBak() {
-    local base="${1}";
-    [ -n "${base}" ] || base="${BACKUP}";
+    local -i i
+    local generated
 
-    local bak;
-    local -i i;
-    for i in $(seq 1 100); do
-        bak="${base}$i";
-        ! [ -e "${bak}" ] && break;
-    done;
-    echo "${bak}";
-};
+    for i in $(seq 1 1000); do
+        generated="${Pacold}$i"
+        ! [[ -e "${generated}" ]] && break
+    done
 
-# Make a temporary copy of 'mirrorlist.pacnew'
-#   (If it doesn't exist copy 'mirrorlist'.)
-# Then remove all the non-US mirrors from the temporary file
-#   and uncomment the US mirrors.
-_tmpPac() {
-    [ -e "${PACNEW}" ] ||
-        _evalcho cp -a "${FILE}" "${PACNEW}";
+    Pacold="${generated}"
+}
 
-    TMP="mirrorlist.tmp";
+print_pacnow() {
 
-    sed -n '/United States/,/##/{p}' "${PACNEW}" | head -n -2 > "${TMP}" ||
-        exit $?;
-    sed -i 's/#Server/Server/' "${TMP}" ||
-        exit $?;
-};
+    if ! cat "${PACNOW}"; then
+        fail "Failed to print '${PACNOW}'" $?
+    fi
 
-# Use `rankmirrors` to find the best servers in the temporary file.
-# Write the output to 'mirrorlist'.
-# Make a copy of the new, updated 'mirrorlist'.
-_rankPac() {
-    echo "  rankmirrors -n 6 \"${TMP}\" > \"${FILE}\"";
-    rankmirrors -n 6 "${TMP}" > "${FILE}" ||
-        exit $?;
+    return 0
+}
 
-    cat "${FILE}";
-};
+create_pacold() {
+    copy_file "${PACNOW}" "${Pacold}"
+}
 
-# Create a backup of the new mirrorlist.
-_bakPacNew() {
-    _evalcho cp -a "${FILE}" "${BACKUP}" ||
-        exit $?;
-};
+copy_file() {
 
-_q() {
-    eval "$@" &>/dev/null;
-};
+    local src="$1"
+    local dst="$2"
 
-_evalcho() {
-    echo "  $@";
-    eval "$@";
-};
+    echo "sudo cp -a \"${src}\" \"${dst}\""
+    if ! sudo cp -a "${src}" "${dst}"; then
+        fail "Unable to copy '${src}' to '${dst}'" $?
+    fi
 
-_main;
+    return 0
+}
+
+create_pacnew() {
+    [[ -e "${PACNEW}" ]] && return 0
+    copy_file "${PACNOW}" "${PACNEW}"
+}
+
+filter_mirrors() {
+
+    if ! sudo sed -n '/United States/,/##/{p}' "${PACNEW}" | sudo head -n -2 | sudo tee "${PACTMP}" &>/dev/null; then
+        fail "Failed to remove all non-US mirrors from '${PACNEW}'" $?
+    fi
+
+    return 0
+}
+
+uncomment_mirrors() {
+
+    if ! sudo sed -i 's/#Server/Server/' "${PACTMP}"; then
+        fail "Failed to uncomment all mirrors in '${PACTMP}'" $?
+    fi
+
+    return 0
+}
+
+rank_mirrors() {
+
+    echo "sudo rankmirrors -n 6 \"${PACTMP}\" > \"${PACNOW}\""
+    if ! sudo rankmirrors -n 6 "${PACTMP}" | sudo tee "${PACNOW}" &>/dev/null; then
+        fail "Failed to rank mirrors and record them in '${PACNOW}'" $?
+    fi
+
+    cat "${PACNOW}"
+}
+
+create_pacbak() {
+    copy_file "${PACNOW}" "${PACBAK}"
+}
+
+err() {
+    local msg="$1"
+    echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: ${msg}" >&2
+}
+
+fail() {
+    local msg="$1"
+    local scode="$2"
+    err "${msg}"
+    exit "${scode}"
+}
+
+main
