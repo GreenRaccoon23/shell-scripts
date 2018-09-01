@@ -33,6 +33,7 @@ linux-pf
 linuxck.in
 modx
 node/**
+node/*/node_modules
 pngz
 scratch/**
 scripts
