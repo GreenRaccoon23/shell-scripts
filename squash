@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+# Usage:
+# squash 'img.png';
+# squash 'src.png' 'dst.png';
+
+declare SRC
+declare DST
+
+main() {
+
+  set_src "$1"
+  set_dst "$2"
+
+  [[ -z "${SRC}" ]] && fail 1 'No file specified.'
+
+  create_dst || fail $? "Failed to copy '${SRC}' to '${DST}'"
+  trim_deadspace || fail $? "Failed to trim the dead space in '${DST}'"
+  optimize_dst || fail $? "Failed to optimize '${DST}'"
+}
+
+set_src() {
+  SRC="$1"
+}
+
+set_dst() {
+  DST="$1"
+  [[ -z "${DST}" ]] && DST="${SRC}"
+  return 0
+}
+
+create_dst() {
+  [[ "${SRC}" == "${DST}" ]] && return 0
+  cp -a "${SRC}" "${DST}"
+}
+
+trim_deadspace() {
+  convert -trim "${DST}" "${DST}"
+}
+
+optimize_dst() {
+  optipng -o7 -zm1-9 "${DST}" -out "${DST}"
+}
+
+fail() {
+  local -r scode="$1"
+  local -r msg="$2"
+  err "${msg}"
+  exit "${scode}"
+}
+
+err() {
+  local -r msg="$1"
+  echo "[$(timestamp)]: ${msg}" >&2
+}
+
+timestamp() {
+  date +'%Y-%m-%d %H:%M:%S'
+  # date +'%Y-%m-%dT%H:%M:%S%z'
+  # date -u +'%Y-%m-%dT%H:%M:%SZ'
+}
+
+main "$@"

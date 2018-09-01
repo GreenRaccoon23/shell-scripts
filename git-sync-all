@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+# set -o xtrace
+
+declare SRC
+
+main() {
+
+  set_src "$1"
+
+  pushd "${SRC}" >/dev/null
+
+  msg1 'Syncing repos...'
+  sync_groups
+
+  popd >/dev/null
+}
+
+set_src() {
+  SRC="$1"
+  [[ -z "${SRC}" ]] && SRC="${PWD}"
+  return 0
+}
+
+sync_groups() {
+
+  local group
+
+  while read -r group; do
+
+    [[ ! -d "${group}" ]] && continue
+
+    pushd "${group}" >/dev/null
+    sync_group
+    popd >/dev/null
+
+  done < <(ls -A1)
+}
+
+sync_group() {
+
+  local repo
+
+  while read -r repo; do
+
+    [[ ! -d "${repo}" ]] && continue
+
+    pushd "${repo}" >/dev/null
+    sync_repo "${repo}"
+    popd >/dev/null
+
+  done < <(ls -A1)
+}
+
+sync_repo() {
+
+  local -r repo="$1"
+
+  ! git_is_repo && return 0
+  ! git_is_clean && return 0
+
+  msg2 "Syncing '${repo}'..."
+
+  if ! git pull --rebase; then
+    fail $? "Failed to sync repo '${repo}' with 'git pull --rebase'"
+  fi
+
+  return 0
+}
+
+git_is_repo() {
+  git branch &>/dev/null && return 0
+  return 1
+}
+
+git_is_clean() {
+  git diff --quiet --ignore-submodules HEAD 2>/dev/null
+  case $? in
+    0) return 0 ;;
+    1) return 1 ;;
+    129) return 1 ;; # not a git repo
+  esac
+}
+
+fail() {
+  local -r scode="$1"
+  local -r msg="$2"
+  err "${msg}"
+  exit "${scode}"
+}
+
+err() {
+  local -r msg="$1"
+  echo "[$(timestamp)]: ${msg}" >&2
+}
+
+msg1() {
+  local -r msg="$1"
+  echo "[$(timestamp)]: ${msg}"
+}
+
+msg2() {
+
+  local -r msg="$1"
+  local -r GREEN="$(tput setaf 2)"
+  local -r RESET="$(tput sgr0)"
+
+  echo "${GREEN}${msg}${RESET}"
+}
+
+timestamp() {
+  date +'%Y-%m-%d %H:%M:%S'
+  # date +'%Y-%m-%dT%H:%M:%S%z'
+  # date -u +'%Y-%m-%dT%H:%M:%SZ'
+}
+
+main "$@"

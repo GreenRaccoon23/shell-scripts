@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+# set -o xtrace
+
+main() {
+  verify_installed
+  uncache
+}
+
+verify_installed() {
+
+  msg1 'Verifying that npm is installed'
+  is_installed 'npm' || fail 1 'npm is not installed'
+}
+
+is_installed() {
+  local -r cmd="$1"
+  command -v "${cmd}" &>/dev/null
+}
+
+uncache() {
+
+  msg1 'Running: "npm cache clear --force"'
+  npm cache clear --force || fail $? 'Failed to run "npm cache clear --force"'
+
+  msg1 'Running: "npm rebuild"'
+  npm rebuild || fail $? 'Failed to run "npm rebuild"'
+}
+
+fail() {
+  local -r scode="$1"
+  local -r msg="$2"
+  err "${msg}"
+  exit "${scode}"
+}
+
+msg1() {
+  local -r msg="$1"
+  echo "[$(timestamp)]: ${msg}"
+}
+
+err() {
+  local -r msg="$1"
+  echo "[$(timestamp)]: ${msg}" >&2
+}
+
+timestamp() {
+  date +'%Y-%m-%d %H:%M:%S'
+  # date +'%Y-%m-%dT%H:%M:%S%z'
+  # date -u +'%Y-%m-%dT%H:%M:%SZ'
+}
+
+main

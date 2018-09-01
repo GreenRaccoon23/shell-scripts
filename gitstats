@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+# Usage examples:
+# gitstats --since '1 month ago';
+# gitstats --since '1 month ago' --until '1 day ago';
+# gitstats --author 'GreenRaccoon23' --since '1 month ago' --until '1 day ago';
+
+main() {
+  commit_stats "$@"
+  line_stats "$@"
+}
+
+commit_stats() {
+  git log --pretty=format:'noop' "$@" | awk 'END {print NR, "commits"}'
+}
+
+line_stats() {
+  git log --pretty=format:'' --numstat "$@" | awk 'NF' | awk '{insertions+=$1; deletions+=$2} END {print NR, "files changed,", insertions, "insertions(+),", deletions, "deletions(+)"}'
+}
+
+main "$@"
+
+# Credits:
+# https://stackoverflow.com/a/48575013/4257217
+# https://stackoverflow.com/a/4593065/4257217
+# https://gist.github.com/Xeoncross/4020489

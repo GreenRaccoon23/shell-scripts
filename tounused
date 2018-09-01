@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+# declare -r ME="$0";
+# declare -r MY_NAME="${ME##*/}";
+declare -ar FPATHS=("$@")
+
+main() {
+  FPATHS=("$@")
+  to_unused_batch
+}
+
+to_unused_batch() {
+
+  local p
+
+  for p in "${FPATHS[@]}"; do
+    to_unused "${p}"
+  done
+}
+
+to_unused() {
+
+  local -r p="$1" # 'dname/corename_10.png'
+  local core
+  local ext
+  local unnumbered
+  local -i i=0
+  local testpath="${p}"
+  core="$(rm_ext "${p}")"                      # 'dname/corename_10'
+  ext="$(trim_prefix "${p}" "${core}")"        # '.png'
+  unnumbered="$(trim_suffix_digits "${core}")" # 'dname/corename_'
+
+  while true; do
+    [ ! -e "${testpath}" ] && break
+    i=$((${i} + 1))
+    testpath="${unnumbered}${i}${ext}"
+  done
+
+  echo "${testpath}"
+}
+
+rm_ext() {
+
+  local -r p="$1"
+  local -r core="${p%%.*}"
+
+  if [[ "${core}" == "${p}" ]]; then
+    echo "${core}" # base case
+  else
+    rm_ext "${core}" # recursive case
+  fi
+}
+
+trim_prefix() {
+
+  local -r str="$1" # 'dname/corename_10.png'
+  local -r sub="$2" # 'dname/corename_10'
+  local -ir n_sub=${#sub}
+  local -r pre="${str:${n_sub}}" # '.png'
+
+  echo "${pre}"
+}
+
+trim_suffix_digits() {
+
+  local -r str="$1"                       # 'dname/corename_10'
+  local -r trimmed="${str/%[[:digit:]]/}" # 'dname/corename_'
+
+  if [[ "${trimmed}" == "${str}" ]]; then
+    echo "${trimmed}" # base case
+  else
+    trim_suffix_digits "${trimmed}" # recursive case
+  fi
+}
+
+main "$@"
