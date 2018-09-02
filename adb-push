@@ -1,348 +1,323 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+# set -o xtraceadb
 shopt -s extglob
 
-# Print help and exit.
-_help() {
-    local path="$0";
-    local script="${path##*/}";
-    cat << EOH >&2
+declare -r ME="$0"
+declare -r MY_NAME="${ME##*/}"
+declare -r DST_DAD="/sdcard/adb"
+
+main() {
+  check_args "$@"
+  verify_srcs "$@"
+  adb_connect
+  push_srcs "$@"
+}
+
+check_args() {
+
+  (($# == 0)) && print_help 1
+
+  local flag
+
+  for flag in "$@"; do
+    case "${flag}" in
+      *(-)[hH] | *(-)[hH][eE][lL][pP]) print_help 0 ;;
+    esac
+  done
+}
+
+print_help() {
+  cat <<EOH >&2
 Run \`adb push\` and verify the integrity of the sent files.
 Usage:
-    ${script} <files/directories>...
+    ${MY_NAME} <files/directories>...
 EOH
 
-    local status="${1}";
-    [ -z "${status}" ] &&
-        status=0;
+  local -ir scode=$1
+  ((${scode} == 0)) && scode=0
 
-    exit "${status}";
+  exit ${scode}
 }
 
-# Analyze user arguments.
-_getopts() {
-    [ -n "$*" ] ||
-        _help 1;
-
-    # Iterate over user arguments.
-    local -i i;
-    local flag;
-    for ((i=1;i<=$#;i++)); do
-        eval flag="\$$i";
-        case "${flag}" in
-            *(-)[hH] | *(-)[hH][eE][lL][pP] )
-                _help 0;
-                ;;
-        esac;
-    done;
+verify_srcs() {
+  local src
+  for src in "$@"; do
+    [[ -e "${src}" ]] || fail 1 "'${src}' does not exist."
+  done
 }
 
-# Set console color.
-# Optionally, run a command afterwards, and once the command returns,
-#   reset the console color to normal.
-_c() {
-    local -A Codes=(
-        ["black"]="0"
-        ["red"]="1"
-        ["green"]="2"
-        ["yellow"]="3"
-        ["blue"]="4"
-        ["magenta"]="5"
-        ["cyan"]="6"
-        ["white"]="7"
-    );
+adb_connect() {
 
-    local k c;
-    for k in "${!Codes[@]}"; do
-        [ "${k}" = "${1}" ] &&
-            c="${Codes[$k]}";
-    done;
+  local connected
+  connected="$(adb devices | head -2 | tail -1)"
+  [[ -n "${connected}" ]] && return 0
 
-    [ -n "${c}" ] &&
-        tput setaf "${c}";
+  echo 'Waiting for Android device to connect...'
+  ! adb wait-for-device && return 1
 
-    [ -z "${*:2}" ] &&
-        return;
-
-    eval "${@:2}";
-    tput sgr0;
+  echo 'Android device connected.'
 }
 
-# Set the console color to bold.
-# Optionally, pass any arguments to function '_c'.
-_C() {
-    tput bold;
-    [ -n "$*" ] &&
-        _c "$@";
+push_srcs() {
+  local src
+  local -i i=-1
+  for src in "$@"; do
+    i=$((${i} + 1))
+    ((${i} != 0)) && echo
+    push_src "${src}"
+  done
 }
 
-# Reset console color to normal.
-_u() {
-    tput sgr0;
+push_src() {
+
+  local -r src_path="$1"
+
+  local src_dad
+  src_dad="$(dirname "${src_path}")"
+  [[ "${src_dad}" == '.' ]] && src_dad=''
+
+  local src_name
+  src_name="$(basename "${src_path}")"
+
+  pushd "${src_dad}" >/dev/null
+  push_src_dynamic "${src_name}"
+  popd >/dev/null
 }
 
-# Print any number of messages in bold green.
-_gecho() {
-    _c green
-    for m; do
-        echo "${m}";
-    done;
-    _u;
+push_src_dynamic() {
+
+  local -r src_name="$1"
+
+  # h1 "${src_name}"
+  h1 "Preparing to send '${src_name}' to '${DST_DAD}/${src_name}'"
+
+  if [[ -d "${src_name}" ]]; then
+    push_verify_dir "${src_name}"
+  else
+    push_verify_reg "${src_name}"
+  fi
+
+  msg1 "Successfully sent '${src_name}' to '${DST_DAD}/${src_name}'"
 }
 
-# Print error messages in red.
-_errcho() {
-    _c red;
-    for m; do
-        echo "${m}";
-    done;
-    _u;
+push_verify_dir() {
+
+  local -r src_name="$1"
+  local -r tar_name="${src_name}.tar"
+
+  tar_src "${src_name}" "${tar_name}"
+  push_verify_reg "${tar_name}"
+  untar_dst "${tar_name}"
+  rm_dst_tar "${tar_name}"
+  rm_src_tar "${tar_name}"
 }
 
-# Run a command silently.
-_q() {
-    eval "$@" >/dev/null;
+push_verify_reg() {
+
+  local -r src="$1"
+
+  adb_push "${src}"
+  veryify_pushed "${src}"
 }
 
-# Echo a command, and then evaluate it.
-_evalcho() {
-    echo "$@";
-    eval "$@";
+tar_src() {
+
+  local -r src_dir="$1"
+  local -r src_tar="$2"
+
+  msg1 "Creating temporary tar archive of local directory..."
+  tar_dynamic "${src_tar}" "${src_dir}" || fail $? "Failed to tar '${src_name}' to '${tar_name}'"
 }
 
-# Remove an extension from a filename.
-_rmExt() {
-    local file="${1}";
-    local ext="${2}";
-    [ "${file:$((${#file}-1)):1}" = "." ] &&
-        file="$(_rmExt "${file}" "")";
+tar_dynamic() {
 
-    if [ "${file%\.${ext}*}" != "${file}" ]; then
-        echo "${file%\.${ext}*}";
-    else
-        echo "${file%${ext}*}";
-    fi;
+  local -r dir_name="$1"
+  local -r tar_name="$2"
+  local os
+  os="$(uname)"
+
+  if [[ "${os}" == "Darwin" ]]; then
+    tar_mac "${dir_name}" "${tar_name}"
+  else
+    tar_standard "${dir_name}" "${tar_name}"
+  fi
 }
 
-# Wait for Android device to connect.
-_connect() {
-    local connected;
-    connected="$(adb devices | head -2 | tail -1)";
-    [ -n "${connected}" ] &&
-        return 0;
-
-    echo "Waiting for Android device to connect...";
-    adb wait-for-device &&
-        echo "Android device connected.";
+# note: This does not work. A tar archive created on a Mac filesytem cannot be
+# extracted onto a different filesystem, even though that is one of the primary
+# purposes of a tar archive in the first place. Someone probably has figured
+# out a workaround, but I have not found it yet.
+# todo: Figure out how to make a Mac create a tar archive that is not useless.
+tar_mac() {
+  local -r dir_name="$1"
+  local -r tar_name="$2"
+  echo "gtar -cf '${dir_name}' '${tar_name}'"
+  gtar -cf "${dir_name}" "${tar_name}"
 }
 
-# Create a tar archive of the file to pull if it is a directory.
-_tar() {
-    echo "Creating tar archive of local directory '${FILE}'...";
-    echo " " tar -cf "${FILE}.tar" "${FILE}";
-    tar -cf "${FILE}.tar" "${FILE}";
-
-    FILE="${FILE}.tar";
-    COPY="${COPY}.tar";
-}
-
-# Work-around to get a status code from the adb shell,
-# since it hasn't been implemented in the last 8 years.
-_adbShellStatus() {
-    adb shell "$@ >/dev/null 2>&1; printf '%d' \$?";
-}
-
-# Extract the tar archives.
-_untar() {
-    echo "Extracting tar archive on device...";
-    echo "  adb shell \"cd '${DST}' &&
-             tar -xf '${FILE}';
-             rm '${FILE}'\"";
-    #adb shell "cd \"${DST}\" && tar -xf \"${FILE}\" && rm \"${FILE}\"";
-
-    local adbCmd="cd '${DST}' &&
-                  tar -xf '${FILE}'";
-    local adbStatus;
-    adbStatus="$(_adbShellStatus "${adbCmd}")";
-    adb shell "rm '${DST}/${FILE}'";
-    # [ "${adbStatus}" = 0 ] || return 1; # `tar` throws weird `chown` errors
-
-    echo "Cleaning up...";
-    rm "${FILE}" ||
-        return $?;
-
-    FILE="$(_rmExt "${FILE}" "tar")";
-    COPY="$(_rmExt "${COPY}" "tar")";
+tar_standard() {
+  local -r dir_name="$1"
+  local -r tar_name="$2"
+  echo "tar -cf '${dir_name}' '${tar_name}'"
+  tar -cf "${dir_name}" "${tar_name}"
 }
 
 # Send the file to the Android device.
-_push() {
-    # Return if nothing was passed.
-    [ -n "$*" ] ||
-        return;
+adb_push() {
 
-    local path="${1}";
+  local -r src="$1"
+  local -r dst="${DST_DAD}/${src}"
 
-    echo "Sending '${path}' to device...";
+  # echo "Copying directory structure..."
+  # adb_copy_dir_structure "${src}" "${DST_DAD}" || return $?
 
-    # Copy the path's directory structure to the device.
-    _mkParents "${path}" ||
-        return $?;
-    echo " " adb push -p "${path}" "${DST}/${path}";
-    adb push -p "${path}" "${DST}/${path}";
+  msg1 "Sending '${src}' to '${dst}'..."
+  echo "adb push -p '${src}' '${dst}'"
+  adb push -p "${src}" "${dst}"
 }
 
-# Make the directory structure on the Android device.
-_mkParents() {
-    # Return if nothing was passed.
-    [ -n "$*" ] ||
-        return;
+# # Make the directory structure on the Android device.
+# adb_copy_dir_structure() {
 
-    local dir="${1}";
-    [ -d "${dir}" ] &&
-        dir="${dir}/";
+#   local -r src="$1"
+#   local -r dst_dad="$2"
 
-    # Return if no directory structure needs to be made.
-    [ "${dir}" = "." ] &&
-        return;
+#   # Return if no directory structure needs to be made.
+#   [[ "${src}" = "." ]] && return 0
+#   [[ ! -d "${src}" ]] && return 0
 
-    # Make the directory structure on the Android device.
-    find "${dir}" -type d -exec adb shell mkdir "${DST}/{}" \;;
-}
+#   # Make the directory structure on the Android device.
+#   find "${src}" -type d -exec adb shell mkdir -p "${dst_dad}/{}" \;
+# }
 
 # Check the md5sum of the sent Android file/directory.
-_verify() {
-    [ -e "${FILE}" ] ||
-        return 1;
+veryify_pushed() {
 
-    echo "Verifying md5sum checksums...";
+  local -r src="$1"
+  local -r dst="${DST_DAD}/${src}"
 
-    local copyExists;
-    copyExists="$(adb shell "[ -e \"${COPY}\" ] && echo 0")";
-    [ -n "${copyExists}" ] ||
-        return 1;
+  msg1 'Verifying md5sums...'
 
-    local md5File;
-    md5File="$(md5sum "${FILE}")";
-    echo "  ${md5File}";
-    md5File="${md5File%  *}";
+  ! adb_file_exists "${dst}" && return 1
 
-    local md5Copy;
-    md5Copy="$(adb shell "md5sum \"${COPY}\"")";
-    echo "  ${md5Copy}";
-    md5Copy="${md5Copy%  *}";
+  local md5_src
+  md5_src="$(md5sum_dynamic "${src}")"
 
-    [ "${md5File}" = "${md5Copy}" ] ||
-        return 1;
+  echo "  ${md5_src}  ${src}"
+
+  local md5_dst
+  md5_dst="$(adb_md5sum "${dst}")"
+
+  echo "  ${md5_dst}  ${dst}"
+
+  [[ "${md5_src}" != "${md5_dst}" ]] && return 1
+  return 0
 }
 
-# Rerun script.
-_retry() {
-    local msg="$*";
-    [ -z "${msg}" ] &&
-        msg="Failed to send \"${FILE}\". Retrying...";
+adb_file_exists() {
 
-    _errcho "${msg}";
-    $0 "${FILE}";
+  local f="$1"
+  local exists
+  exists=$(adb shell "[ -e '${f}' ] && echo 0")
+
+  [[ "${exists}" == '0' ]] && return 0
+  return 1
 }
 
-# Run main function.
-_main() {
-    # Quit if the local file does not exist.
-    if ! [ -e "${FILE}" ]; then
-        _errcho "\"${FILE}\" doesn't exist.";
-        return 1;
-    fi;
+md5sum_dynamic() {
 
-    # Wait for the device to connect to the adb server if not connected yet.
-    _connect;
+  local -r f="$1"
+  local os
+  os="$(uname)"
 
-    # Do not copy the parent directories of $FILE to the device.
-    if [ -n "${PARENT_DIR}" ]; then
-        _q pushd "${PARENT_DIR}";
-        FILE="${BASE}";
-    fi;
-
-    # Echo the name of $FILE in green to serve as a title for Terminal output.
-    # This makes the output easier to read when sending many files.
-    _gecho "${FILE}";
-
-    # Tar $FILE if it is a directory in order to generate an md5sum later.
-    [ -n "${IS_DIR}" ] &&
-        _tar;
-
-    # Send the local file to the device.
-    _push "${FILE}";
-    if [ $? != 0 ]; then
-        _retry;
-        return $?;
-    fi;
-
-    # Compare the md5sums of the local and sent files.
-    # If they do not match, resend it.
-    _verify;
-    if [ $? != 0 ]; then
-        _retry;
-        return $?;
-    fi;
-
-    # If the file was tarred earlier,
-    #   untar it on the device,
-    #   remove the tar file on the device,
-    #   and remove the local tar file.
-    # If any errors occur, resend the file.
-    if [ -n "${IS_DIR}" ]; then
-        _untar;
-        if [ $? != 0 ]; then
-            _retry "Failed to untar ${FILE} on the device. Resending...";
-            return $?;
-        fi;
-    fi;
-
-    # Remember to move back to the original directory.
-    [ -n "${PARENT_DIR}" ] &&
-        _q popd;
-
-    # If nothing failed, report it.
-    echo "Successfully sent ${FILE}."
-
-    # Make the last line of output the path of the sent file on the device.
-    echo "${COPY}";
+  if [[ "${os}" == "Darwin" ]]; then
+    md5sum_mac "${f}"
+  else
+    md5sum_standard "${f}"
+  fi
 }
 
-# Check for flags.
-_getopts "$@";
+md5sum_mac() {
+  local -r f="$1"
+  md5 -q "${f}"
+}
 
-# Local file to push:
-declare FILE="${1}";
+md5sum_standard() {
+  local -r f="$1"
+  md5sum "${f}" | awk '{print $1}'
+}
 
-# Destination directory on device:
-declare -r DST="/sdcard/adb";
+adb_md5sum() {
+  local -r f="$1"
+  adb shell "md5sum '${f}' | awk '{print \$1}'"
+}
 
-# Note whether $FILE needs to be tarred (in order to compare md5sums).
-declare IS_DIR=1;
-[ -d "${FILE}" ] ||
-    unset IS_DIR;
+untar_dst() {
 
-# Split the path of $FILE so that its parents are not copied to the device.
-declare BASE PARENT_DIR;
-BASE="$(basename "${FILE}")";
-PARENT_DIR="$(dirname "${FILE}")";
+  local -r tar_name="$1"
 
-# If the parent directory of $FILE is the present working directory,
-#   note it by unsetting the $PARENT_DIR variable.
-[ "${PARENT_DIR}" = "." ] &&
-    unset PARENT_DIR;
+  msg1 'Extracting temporary tar archive on device...'
+  echo "adb shell \"cd '${DST_DAD}' && tar -xf '${tar_name}'\""
+  # adb shell "cd '${DST_DAD}' && tar -xf '${tar_name}' >/dev/null 2>&1"
+  adb shell "cd '${DST_DAD}' && tar -xf '${tar_name}'"
+  # adb_exec_with_scode "cd '${DST_DAD}' && tar -xf '${tar_name}'" || fail "Failed to untar '${DST_DAD}/${tar_name}'" # `tar` throws weird `chown` errors
+}
 
-# Full destination path:
-declare COPY="${DST}/${BASE}";
+# # Work-around to get a status code from the adb shell.
+# adb_exec_with_scode() {
+#   local scode
+#   scode="$(adb shell "$* >/dev/null 2>&1; printf '%d' \$?")"
+#   return "${scode}"
+# }
 
-# Send it.
-_main;
+rm_dst_tar() {
+  local -r tar_name="$1"
+  msg1 'Removing temporary tar archive on device...'
+  echo "adb shell \"rm '${DST_DAD}/${tar_name}'\""
+  adb shell "rm '${DST_DAD}/${tar_name}'"
+  # adb_exec_with_scode "rm '${DST_DAD}/${tar_name}'" || fail "Failed to remove '${DST_DAD}/${tar_name}'"
+}
 
-# Loop the script for any additional files.
-if [ -n "${2}" ]; then
-    echo;
-    "$0" "${@:2}";
-fi;
+rm_src_tar() {
+  local -r tar_name="$1"
+  msg1 'Removing temporary tar archive of local directory...'
+  # echo "rm '${tar_name}'"
+  rm "${tar_name}" || fail $? "Failed to remove '${tar_name}'."
+}
 
-exit $?;
+fail() {
+  local -r scode="$1"
+  local -r msg="$2"
+  err "${msg}"
+  exit "${scode}"
+}
+
+err() {
+  local -r msg="$1"
+  echo "[$(timestamp)]: ${msg}" >&2
+}
+
+msg1() {
+  local -r msg="$1"
+  echo "[$(timestamp)]: ${msg}"
+}
+
+h1() {
+  local -r msg="$1"
+  local -r GREEN="$(tput setaf 2)"
+  local -r RESET="$(tput sgr0)"
+
+  echo "${GREEN}[$(timestamp)]: ${msg}${RESET}"
+}
+
+timestamp() {
+  date +'%Y-%m-%d %H:%M:%S'
+  # date +'%Y-%m-%dT%H:%M:%S%z'
+  # date -u +'%Y-%m-%dT%H:%M:%SZ'
+}
+
+main "$@"
