@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+# set -o xtrace
+
+main() {
+  relock
+}
+
+relock() {
+
+  msg1 'Running: "rm -rf node_modules"'
+  rm -rf node_modules || fail $? 'Failed to run "rm -rf node_modules"'
+
+  msg1 'Running: "rm package-lock.json"'
+  rm package-lock.json || fail $? 'Failed to run "rm package-lock.json"'
+
+  msg1 'Running: "npm i"'
+  npm i || fail $? 'Failed to run "npm i"'
+}
+
+fail() {
+  local -r scode="$1"
+  local -r msg="$2"
+  err "${msg}"
+  exit "${scode}"
+}
+
+msg1() {
+  local -r msg="$1"
+  echo "[$(timestamp)]: ${msg}"
+}
+
+err() {
+  local -r msg="$1"
+  echo "[$(timestamp)]: ${msg}" >&2
+}
+
+timestamp() {
+  date +'%Y-%m-%d %H:%M:%S'
+  # date +'%Y-%m-%dT%H:%M:%S%z'
+  # date -u +'%Y-%m-%dT%H:%M:%SZ'
+}
+
+main
