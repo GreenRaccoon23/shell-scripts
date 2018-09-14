@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+# set -o xtrace
+
+main() {
+
+  local latest
+  latest="$(eb list | tail -n 1)"
+  latest="${latest#*\* }"
+
+  echo "${latest}"
+  eb use "${latest}"
+}
+
+main
