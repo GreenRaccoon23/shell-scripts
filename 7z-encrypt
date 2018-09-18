@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+# set -o xtrace
+
+main() {
+  local -r src="$1"
+  7z_encrypt "${src}"
+}
+
+7z_encrypt() {
+  local -r src="$1"
+  local -r dst="${src}.7z"
+  7z a -p "${dst}" "${src}"
+}
+
+main "$@"
