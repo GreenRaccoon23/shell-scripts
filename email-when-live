@@ -19,12 +19,25 @@ email_when_live() {
 
 ping_until_live() {
 
+  msg1 "ping -c 1 '${URL}'"
+
   if ping -c 1 "${URL}"; then
     return 0
   fi
 
   sleep 1
   ping_until_live
+}
+
+msg1() {
+  local -r msg="$1"
+  echo "[$(timestamp)]: ${msg}"
+}
+
+timestamp() {
+  date +'%Y-%m-%d %H:%M:%S'
+  # date +'%Y-%m-%dT%H:%M:%S%z'
+  # date -u +'%Y-%m-%dT%H:%M:%SZ'
 }
 
 main
