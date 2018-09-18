@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+# set -o xtrace
+
+declare -r URL="$1"
+declare -r EMAIL="$2"
+
+main() {
+  email_when_live
+}
+
+email_when_live() {
+  ping_until_live
+  mail -s "UP: ${URL}" "${EMAIL}" <<<"'${URL}' is up"
+}
+
+ping_until_live() {
+
+  if ping -c 1 "${URL}"; then
+    return 0
+  fi
+
+  sleep 1
+  ping_until_live
+}
+
+main
