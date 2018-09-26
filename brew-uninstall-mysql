@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+# set -o xtrace
+
+shopt -s extglob
+
+declare PKGNAME
+
+main() {
+  echo "$0"
+  PKGNAME="$1"
+  verify_macos
+  kill_processes
+  uninstall_mysql
+}
+
+verify_macos() {
+  local os
+  os="$(uname)"
+  [[ "${os}" != 'Darwin' ]] && fail $? 'This script only works on MacOS'
+  return 0
+}
+
+kill_processes() {
+  msg1 "Processes using 'mysql':"
+  ps -ax | grep 'mysql' | grep -v 'grep mysql' | grep -v "$0" || [[ $? == 1 ]]
+  msg1 "If any processes were listed above which use 'mysql', kill them (in another terminal)"
+  read -rp 'Press any key to continue:'
+}
+
+uninstall_mysql() {
+  msg1 "Uninstalling '${PKGNAME}':"
+  sudo -v
+  brew remove "${PKGNAME}" || fail $? "Failed to run \"brew remove '${PKGNAME}'\""
+  brew cleanup
+  rm_file '/usr/local/mysql'
+  rm_dir '/usr/local/var/mysql'
+  rm_dir '/usr/local/mysql'*
+  rm_file "${HOME}/Library/LaunchAgents/homebrew.mxcl.mysql.plist"
+  rm_dir '/Library/StartupItems/MySQLCOM'
+  rm_dir '/Library/PreferencePanes/My'*
+  launchctl unload -w "${HOME}/Library/LaunchAgents/homebrew.mxcl.mysql.plist"
+  # edit /etc/hostconfig and remove the line MYSQLCOM=-YES-
+  rm_dir "${HOME}/Library/PreferencePanes/My"*
+  rm_dir '/Library/Receipts/mysql'*
+  rm_dir '/Library/Receipts/MySQL'*
+  rm_dir '/private/var/db/receipts/'*'mysql'*
+}
+
+rm_file() {
+  local -r fpath="$1"
+  [[ -f "${fpath}" ]] && sudo rm "${fpath}"
+}
+
+rm_dir() {
+  local -r dpath="$1"
+  # [[ -d "${dpath}" ]] && sudo rm -rf "${dpath}"
+  sudo rm -rf "${dpath}"
+}
+
+fail() {
+  local -r scode="$1"
+  local -r msg="$2"
+  err "${msg}"
+  exit "${scode}"
+}
+
+err() {
+  local -r msg="$1"
+  echo "[$(timestamp)]: ${msg}" >&2
+}
+
+msg1() {
+  local -r msg="$1"
+  echo "[$(timestamp)]: ${msg}"
+}
+
+timestamp() {
+  date +'%Y-%m-%d %H:%M:%S'
+  # date +'%Y-%m-%dT%H:%M:%S%z'
+  # date -u +'%Y-%m-%dT%H:%M:%SZ'
+}
+
+main "$@"
