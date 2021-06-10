@@ -36,7 +36,7 @@ npm_update_to_latest_and_save() {
     vers="$(npm show "${name}" version)" || fail $? "Failed to run \`npm show \"${name}\" version\`"
     # vers="^${vers}"
 
-    npm i "${type_flag}" "${name}@^${vers}" || fail $? "Failed to run \`npm i \"${type_flag}\" \"${name}@^${vers}\"\`"
+    npm i "-${type_flag}" "${name}@^${vers}" || fail $? "Failed to run \`npm i \"-${type_flag}\" \"${name}@^${vers}\"\`"
     git add 'package.json' 'package-lock.json' || fail $? "Failed to run \`git add 'package.json' 'package-lock.json'\`"
     git commit -m "${name} to ^${vers}" || fail $? "Failed to run \`git commit -m \"${name} to ^${vers}\"\`"
   done
