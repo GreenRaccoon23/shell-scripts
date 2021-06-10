@@ -1,0 +1,68 @@
+#!/bin/bash
+#
+# Update one or more npm packages to the latest version and save them to the
+# package.json.
+# Examples:
+#   npm-up -P underscore moment async
+#   npm-up -D eslint mocha
+
+set -o errexit
+set -o pipefail
+set -o nounset
+# set -o xtrace
+
+main() {
+  npm_update_to_latest_and_save "$@"
+}
+
+npm_update_to_latest_and_save() {
+
+  local type_flag
+  local -a names
+  local vers
+
+  while getopts 'PD' flag; do
+    case "${flag}" in
+      P) type_flag="${flag}" ;;
+      D) type_flag="${flag}" ;;
+      *) fail 1 "Unexpected option '${flag}'" ;;
+    esac
+  done
+
+  shift $((OPTIND - 1))
+  names=("$@")
+
+  for name in "${names[@]}"; do
+    vers="$(npm show "${name}" version)" || fail $? "Failed to run \`npm show \"${name}\" version\`"
+    # vers="^${vers}"
+
+    npm i "${type_flag}" "${name}@^${vers}" || fail $? "Failed to run \`npm i \"${type_flag}\" \"${name}@^${vers}\"\`"
+    git add 'package.json' 'package-lock.json' || fail $? "Failed to run \`git add 'package.json' 'package-lock.json'\`"
+    git commit -m "${name} to ^${vers}" || fail $? "Failed to run \`git commit -m \"${name} to ^${vers}\"\`"
+  done
+}
+
+fail() {
+  local -r scode="$1"
+  local -r msg="$2"
+  err "${msg}"
+  exit "${scode}"
+}
+
+# msg1() {
+#   local -r msg="$1"
+#   echo "[$(timestamp)]: ${msg}"
+# }
+
+err() {
+  local -r msg="$1"
+  echo "[$(timestamp)]: ${msg}" >&2
+}
+
+timestamp() {
+  date +'%Y-%m-%d %H:%M:%S'
+  # date +'%Y-%m-%dT%H:%M:%S%z'
+  # date -u +'%Y-%m-%dT%H:%M:%SZ'
+}
+
+main "$@"
