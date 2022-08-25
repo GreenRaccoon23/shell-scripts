@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+# Usage:
+# jpegoptim-max 'img.jpg';
+
+main() {
+  jpegoptim_max "$@" || fail $? "Failed to run jpegoptim."
+}
+
+jpegoptim_max() {
+  # TODO: Perhaps, repeat this command until jpegoptim starts to say 'skipped' instead of 'optimized'.
+  jpegoptim -p -t "$@"
+  # jpegoptim -p -t --strip-none "$@"
+  # jpegoptim -p -t --strip-all "$@"
+}
+
+fail() {
+  local -r scode="$1"
+  local -r msg="$2"
+  err "${msg}"
+  exit "${scode}"
+}
+
+err() {
+  local -r msg="$1"
+  echo "[$(timestamp)]: ${msg}" >&2
+}
+
+timestamp() {
+  date +'%Y-%m-%d %H:%M:%S'
+  # date +'%Y-%m-%dT%H:%M:%S%z'
+  # date -u +'%Y-%m-%dT%H:%M:%SZ'
+}
+
+main "$@"
